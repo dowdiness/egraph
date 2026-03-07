@@ -1,0 +1,9 @@
+{
+  "name": "dowdiness/egraph",
+  "version": "0.1.0",
+  "readme": "README.mbt.md",
+  "repository": "https://github.com/dowdiness/egraph",
+  "license": "Apache-2.0",
+  "keywords": ["e-graph", "equality-saturation", "rewriting", "optimization", "compiler"],
+  "description": "Equality graph (e-graph) library in MoonBit"
+}
