@@ -1,0 +1,103 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/egglog/src"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+
+// Errors
+
+// Types and methods
+pub(all) enum Action {
+  Union(Term, Term)
+  Set(String, Array[Term], Term)
+  LetAction(String, Term)
+}
+pub impl Show for Action
+pub impl @debug.Debug for Action
+
+pub(all) enum Atom {
+  Fact(String, Array[Term])
+  Equal(Term, Term)
+}
+pub impl Show for Atom
+pub impl @debug.Debug for Atom
+
+pub(all) struct ExtractedExpr {
+  func_name : String
+  args : Array[ExtractedExpr]
+  leaf_value : Value?
+}
+pub impl Show for ExtractedExpr
+pub impl @debug.Debug for ExtractedExpr
+
+pub(all) struct Id(Int)
+#deprecated
+pub fn Id::inner(Self) -> Int
+pub impl Compare for Id
+pub impl Eq for Id
+pub impl Hash for Id
+pub impl Show for Id
+pub impl @debug.Debug for Id
+
+pub(all) struct Rule {
+  name : String
+  query : Array[Atom]
+  actions : Array[Action]
+}
+pub impl Show for Rule
+pub impl @debug.Debug for Rule
+
+pub(all) enum Schedule {
+  Run(Array[Rule])
+  Saturate(Schedule, Int)
+  Repeat(Int, Schedule)
+  Seq(Array[Schedule])
+}
+pub impl Show for Schedule
+pub impl @debug.Debug for Schedule
+
+pub(all) enum Sort {
+  EqSort(String)
+  PrimitiveSort(String)
+}
+pub impl Eq for Sort
+pub impl Hash for Sort
+pub impl Show for Sort
+pub impl @debug.Debug for Sort
+
+pub(all) enum StopReason {
+  Saturated
+  IterLimit
+  NodeLimit
+}
+pub impl Eq for StopReason
+pub impl Show for StopReason
+pub impl @debug.Debug for StopReason
+
+pub(all) enum Term {
+  Var(String)
+  Lit(Value)
+  Call(String, Array[Term])
+}
+pub impl Eq for Term
+pub impl Show for Term
+pub impl @debug.Debug for Term
+
+pub(all) enum Value {
+  IdVal(Id)
+  IntVal(Int)
+  StrVal(String)
+}
+pub impl Compare for Value
+pub impl Eq for Value
+pub impl Hash for Value
+pub impl Show for Value
+pub impl @debug.Debug for Value
+
+// Type aliases
+
+// Traits
+
