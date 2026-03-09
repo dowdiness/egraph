@@ -22,43 +22,80 @@ fn eval_term_opt(
 }
 
 ///|
+fn copy_subst(subst : Map[String, Value]) -> Map[String, Value] {
+  let copied : Map[String, Value] = {}
+  subst.each(fn(k, v) { copied[k] = v })
+  copied
+}
+
+///|
+fn match_term(
+  db : Database,
+  subst : Map[String, Value],
+  term : Term,
+  value : Value,
+) -> Array[Map[String, Value]] {
+  let canon_value = db.canonicalize_value(value)
+  match term {
+    Var(name) =>
+      match subst.get(name) {
+        Some(existing) =>
+          if db.canonicalize_value(existing) == canon_value {
+            [subst]
+          } else {
+            []
+          }
+        None => {
+          let extended = copy_subst(subst)
+          extended[name] = canon_value
+          [extended]
+        }
+      }
+    Lit(v) => if db.canonicalize_value(v) == canon_value { [subst] } else { [] }
+    Call(name, args) => {
+      let table = match db.tables.get(name) {
+        Some(t) => t
+        None => return []
+      }
+      let matches : Array[Map[String, Value]] = []
+      for row_pair in table.scan() {
+        let (key, row_value) = row_pair
+        if db.canonicalize_value(row_value) == canon_value {
+          for matched in unify_row(db, subst, args, key) {
+            matches.push(matched)
+          }
+        }
+      }
+      matches
+    }
+  }
+}
+
+///|
 /// Try to match terms against a row of values, extending the substitution.
 fn unify_row(
   db : Database,
   subst : Map[String, Value],
   terms : Array[Term],
   row : Array[Value],
-) -> Map[String, Value]? {
+) -> Array[Map[String, Value]] {
   if terms.length() != row.length() {
-    return None
+    return []
   }
-  let new_subst : Map[String, Value] = {}
-  subst.each(fn(k, v) { new_subst[k] = v })
+  let mut current : Array[Map[String, Value]] = [subst]
   for i, term in terms {
-    let val = db.canonicalize_value(row[i])
-    match term {
-      Var(name) =>
-        match new_subst.get(name) {
-          Some(existing) => {
-            let canon_existing = db.canonicalize_value(existing)
-            if canon_existing != val {
-              return None
-            }
-          }
-          None => new_subst[name] = val
-        }
-      Lit(v) => if db.canonicalize_value(v) != val { return None }
-      Call(_name, _args) =>
-        match eval_term_opt(db, new_subst, term) {
-          Some(evaluated) =>
-            if db.canonicalize_value(evaluated) != val {
-              return None
-            }
-          None => return None
-        }
+    let next : Array[Map[String, Value]] = []
+    for candidate in current {
+      for matched in match_term(db, candidate, term, row[i]) {
+        next.push(matched)
+      }
+    }
+    current = next
+    if current.is_empty() {
+      return []
     }
   }
-  Some(new_subst)
+  current
 }
 
 ///|
@@ -93,9 +130,8 @@ fn execute_query(
         // Build full row: key columns + output column
         let full_row : Array[Value] = key.copy()
         full_row.push(value)
-        match unify_row(db, s, terms, full_row) {
-          Some(extended) => new_substs.push(extended)
-          None => ()
+        for extended in unify_row(db, s, terms, full_row) {
+          new_substs.push(extended)
         }
       }
     }

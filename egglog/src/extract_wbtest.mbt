@@ -43,3 +43,37 @@ test "extract picks cheaper after rewrite" {
     _ => abort("expected IdVal")
   }
 }
+
+///|
+test "extract preserves primitive arguments alongside child expressions" {
+  let db = Database::new()
+  db.register("Var")
+  db.register("Lam")
+  let var_x = db.call("Var", [StrVal("x")])
+  let lam = db.call("Lam", [StrVal("x"), var_x])
+  db.rebuild()
+  match lam {
+    IdVal(id) => {
+      let (cost, expr) = db.extract(id, ast_size)
+      inspect(cost, content="2")
+      inspect(expr, content="(Lam StrVal(\"x\") (Var StrVal(\"x\")))")
+    }
+    _ => abort("expected IdVal")
+  }
+}
+
+///|
+test "extract preserves multiple primitive arguments" {
+  let db = Database::new()
+  db.register("Pair")
+  let pair = db.call("Pair", [StrVal("left"), StrVal("right")])
+  db.rebuild()
+  match pair {
+    IdVal(id) => {
+      let (cost, expr) = db.extract(id, ast_size)
+      inspect(cost, content="1")
+      inspect(expr, content="(Pair StrVal(\"left\") StrVal(\"right\"))")
+    }
+    _ => abort("expected IdVal")
+  }
+}

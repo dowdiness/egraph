@@ -6,6 +6,7 @@ import {
 }
 
 // Values
+pub fn ast_size(String, Array[Int]) -> Int
 
 // Errors
 
@@ -25,10 +26,30 @@ pub(all) enum Atom {
 pub impl Show for Atom
 pub impl @debug.Debug for Atom
 
+pub struct Database {
+  // private fields
+}
+pub fn Database::call(Self, String, Array[Value]) -> Value
+pub fn Database::extract(Self, Id, (String, Array[Int]) -> Int) -> (Int, ExtractedExpr)
+pub fn Database::find(Self, Id) -> Id
+pub fn Database::lookup(Self, String, Array[Value]) -> Value?
+pub fn Database::new() -> Self
+pub fn Database::rebuild(Self) -> Unit
+pub fn Database::register(Self, String, merge? : ((Value, Value) -> Value)?) -> Unit
+pub fn Database::run_schedule(Self, Schedule) -> StopReason
+pub fn Database::set(Self, String, Array[Value], Value) -> Value
+pub fn Database::union(Self, Id, Id) -> Unit
+
+pub(all) enum ExtractedArg {
+  Expr(ExtractedExpr)
+  Primitive(Value)
+}
+pub impl Show for ExtractedArg
+pub impl @debug.Debug for ExtractedArg
+
 pub(all) struct ExtractedExpr {
   func_name : String
-  args : Array[ExtractedExpr]
-  leaf_value : Value?
+  args : Array[ExtractedArg]
 }
 pub impl Show for ExtractedExpr
 pub impl @debug.Debug for ExtractedExpr

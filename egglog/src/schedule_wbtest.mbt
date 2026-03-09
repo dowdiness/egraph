@@ -75,3 +75,29 @@ test "seq composes schedules" {
   let reason = db.run_schedule(Seq([Run([comm]), Run([comm])]))
   inspect(reason, content="Saturated")
 }
+
+///|
+fn max_int_value(old : Value, new : Value) -> Value {
+  match (old, new) {
+    (IntVal(lhs), IntVal(rhs)) => IntVal(if lhs >= rhs { lhs } else { rhs })
+    _ => old
+  }
+}
+
+///|
+test "saturate stops when merge keeps existing row" {
+  let db = Database::new()
+  let merge : ((Value, Value) -> Value)? = Some(max_int_value)
+  db.register("Trigger")
+  db.register("Score", merge~)
+  let _ = db.set("Trigger", [], IntVal(0))
+  let _ = db.set("Score", [], IntVal(5))
+  let stable_merge : Rule = {
+    name: "stable-merge",
+    query: [Fact("Trigger", [Var("flag")])],
+    actions: [Set("Score", [], Lit(IntVal(3)))],
+  }
+  let reason = db.run_schedule(Saturate(Run([stable_merge]), 5))
+  inspect(reason, content="Saturated")
+  inspect(db.lookup("Score", []).unwrap(), content="IntVal(5)")
+}

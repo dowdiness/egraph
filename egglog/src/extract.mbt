@@ -1,27 +1,30 @@
 ///|
+/// An extracted argument, preserving whether it was primitive or an e-class.
+pub(all) enum ExtractedArg {
+  Expr(ExtractedExpr)
+  Primitive(Value)
+} derive(Debug)
+
+///|
+pub impl Show for ExtractedArg with output(self, logger) {
+  match self {
+    Expr(expr) => Show::output(expr, logger)
+    Primitive(value) => Show::output(value, logger)
+  }
+}
+
+///|
 /// An extracted expression tree.
 pub(all) struct ExtractedExpr {
   func_name : String
-  args : Array[ExtractedExpr]
-  leaf_value : Value?
+  args : Array[ExtractedArg]
 } derive(Debug)
 
 ///|
 pub impl Show for ExtractedExpr with output(self, logger) {
   if self.args.is_empty() {
-    // Leaf node
-    match self.leaf_value {
-      Some(v) => {
-        logger.write_string("(")
-        logger.write_string(self.func_name)
-        logger.write_string(" ")
-        Show::output(v, logger)
-        logger.write_string(")")
-      }
-      None => logger.write_string(self.func_name)
-    }
+    logger.write_string(self.func_name)
   } else {
-    // Node with children
     logger.write_string("(")
     logger.write_string(self.func_name)
     for a in self.args {
@@ -34,7 +37,7 @@ pub impl Show for ExtractedExpr with output(self, logger) {
 
 ///|
 /// Default cost function: 1 + sum of children.
-fn ast_size(_name : String, child_costs : Array[Int]) -> Int {
+pub fn ast_size(_name : String, child_costs : Array[Int]) -> Int {
   let mut total = 1
   for c in child_costs {
     total = total + c
@@ -44,7 +47,7 @@ fn ast_size(_name : String, child_costs : Array[Int]) -> Int {
 
 ///|
 /// Extract the cheapest expression from an e-class.
-fn Database::extract(
+pub fn Database::extract(
   self : Database,
   root : Id,
   cost_fn : (String, Array[Int]) -> Int,
@@ -65,43 +68,29 @@ fn Database::extract(
         }
         // Compute cost for this row
         let child_costs : Array[Int] = []
-        let child_exprs : Array[ExtractedExpr] = []
-        let prim_values : Array[Value] = []
+        let child_args : Array[ExtractedArg] = []
         let mut all_available = true
-        let mut all_primitive = true
         for k in key {
           match self.canonicalize_value(k) {
-            IdVal(child_id) => {
-              // child_id is already canonical from canonicalize_value
-              all_primitive = false
+            IdVal(child_id) =>
               match costs.get(child_id.0) {
                 Some(entry) => {
                   let (c, e) = entry
                   child_costs.push(c)
-                  child_exprs.push(e)
+                  child_args.push(Expr(e))
                 }
                 None => all_available = false
               }
-            }
             v => {
-              prim_values.push(v)
               // Primitive values don't contribute to child cost
               child_costs.push(0)
+              child_args.push(Primitive(v))
             }
           }
         }
         if all_available {
           let cost = cost_fn(name, child_costs)
-          let expr : ExtractedExpr = if all_primitive {
-            // All args are primitives: leaf node like Num(42)
-            match prim_values {
-              [single] =>
-                { func_name: name, args: [], leaf_value: Some(single) }
-              _ => { func_name: name, args: [], leaf_value: None }
-            }
-          } else {
-            { func_name: name, args: child_exprs, leaf_value: None }
-          }
+          let expr : ExtractedExpr = { func_name: name, args: child_args }
           let canon_out = output_id.0
           match costs.get(canon_out) {
             Some(entry) => {

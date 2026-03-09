@@ -31,26 +31,30 @@ fn FunctionTable::insert(
   self : FunctionTable,
   key : Array[Value],
   value : Value,
-) -> Value {
+) -> (Value, Bool) {
   let ks = key_string(key)
   match self.rows.get(ks) {
     Some(old) =>
       if old == value {
-        old
+        (old, false)
       } else {
         match self.merge {
           Some(f) => {
             let merged = f(old, value)
-            self.rows[ks] = merged
-            merged
+            if merged == old {
+              (old, false)
+            } else {
+              self.rows[ks] = merged
+              (merged, true)
+            }
           }
-          None => old
+          None => (old, false)
         }
       }
     None => {
       self.rows[ks] = value
       self.raw_keys[ks] = key
-      value
+      (value, true)
     }
   }
 }

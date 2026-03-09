@@ -1,14 +1,14 @@
 ///|
 /// The egglog database: a collection of function tables + union-find.
-priv struct Database {
-  uf : UnionFind
-  tables : Map[String, FunctionTable]
-  pending : Array[(Id, Id)]
-  mut version : Int
+pub struct Database {
+  priv uf : UnionFind
+  priv tables : Map[String, FunctionTable]
+  priv pending : Array[(Id, Id)]
+  priv mut version : Int
 }
 
 ///|
-fn Database::new() -> Database {
+pub fn Database::new() -> Database {
   { uf: UnionFind::new(), tables: {}, pending: [], version: 0 }
 }
 
@@ -18,12 +18,12 @@ fn Database::alloc_id(self : Database) -> Id {
 }
 
 ///|
-fn Database::find(self : Database, id : Id) -> Id {
+pub fn Database::find(self : Database, id : Id) -> Id {
   self.uf.find(id)
 }
 
 ///|
-fn Database::register(
+pub fn Database::register(
   self : Database,
   name : String,
   merge? : ((Value, Value) -> Value)? = None,
@@ -55,7 +55,11 @@ fn Database::get_table(self : Database, name : String) -> FunctionTable {
 }
 
 ///|
-fn Database::call(self : Database, name : String, args : Array[Value]) -> Value {
+pub fn Database::call(
+  self : Database,
+  name : String,
+  args : Array[Value],
+) -> Value {
   let table = self.get_table(name)
   let canon = self.canon_args(args)
   match table.lookup(canon) {
@@ -70,7 +74,7 @@ fn Database::call(self : Database, name : String, args : Array[Value]) -> Value 
 }
 
 ///|
-fn Database::set(
+pub fn Database::set(
   self : Database,
   name : String,
   args : Array[Value],
@@ -89,13 +93,17 @@ fn Database::set(
           (IdVal(a), IdVal(b)) => {
             self.pending.push((a, b))
             self.version = self.version + 1
-            table.insert(canon, canon_val)
+            let (stored, _) = table.insert(canon, canon_val)
+            stored
           }
           _ =>
             match table.merge {
               Some(_) => {
-                self.version = self.version + 1
-                table.insert(canon, canon_val)
+                let (stored, changed) = table.insert(canon, canon_val)
+                if changed {
+                  self.version = self.version + 1
+                }
+                stored
               }
               None => canon_old
             }
@@ -111,7 +119,7 @@ fn Database::set(
 }
 
 ///|
-fn Database::union(self : Database, a : Id, b : Id) -> Unit {
+pub fn Database::union(self : Database, a : Id, b : Id) -> Unit {
   let ra = self.uf.find(a)
   let rb = self.uf.find(b)
   if ra == rb {
@@ -122,7 +130,7 @@ fn Database::union(self : Database, a : Id, b : Id) -> Unit {
 }
 
 ///|
-fn Database::rebuild(self : Database) -> Unit {
+pub fn Database::rebuild(self : Database) -> Unit {
   while self.pending.length() > 0 {
     let batch = self.pending.copy()
     self.pending.clear()
@@ -162,7 +170,7 @@ fn Database::rebuild_table(self : Database, table : FunctionTable) -> Unit {
 }
 
 ///|
-fn Database::lookup(
+pub fn Database::lookup(
   self : Database,
   name : String,
   args : Array[Value],

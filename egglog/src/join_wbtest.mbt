@@ -59,3 +59,29 @@ test "empty result when no match" {
   let results = execute_query(db, [Fact("Num", [Lit(IntVal(99)), Var("out")])])
   inspect(results.length(), content="0")
 }
+
+///|
+test "nested call pattern learns variables from matched row" {
+  let db = Database::new()
+  db.register("Num")
+  db.register("Add")
+  let lhs = db.call("Num", [IntVal(1)])
+  let rhs = db.call("Num", [IntVal(2)])
+  let _ = db.call("Add", [lhs, rhs])
+  let results = execute_query(db, [
+    Fact("Add", [
+      Call("Num", [Var("lhs")]),
+      Call("Num", [Var("rhs")]),
+      Var("out"),
+    ]),
+  ])
+  inspect(results.length(), content="1")
+  match results {
+    [result] => {
+      inspect(result.get("lhs").unwrap(), content="IntVal(1)")
+      inspect(result.get("rhs").unwrap(), content="IntVal(2)")
+      inspect(result.get("out").unwrap() is IdVal(_), content="true")
+    }
+    _ => abort("expected exactly one result")
+  }
+}

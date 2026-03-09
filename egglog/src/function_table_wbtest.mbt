@@ -19,7 +19,7 @@ test "insert duplicate key without merge keeps old" {
   let key : Array[Value] = [IdVal(Id(0)), IdVal(Id(1))]
   let _ = ft.insert(key, IdVal(Id(2)))
   let result = ft.insert(key, IdVal(Id(3)))
-  inspect(result, content="IdVal(2)")
+  inspect(result, content="(IdVal(2), false)")
 }
 
 ///|

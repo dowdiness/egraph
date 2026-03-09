@@ -27,7 +27,10 @@ fn Database::apply_rule(self : Database, rule : Rule) -> Int {
 
 ///|
 /// Run a schedule, returning why it stopped.
-fn Database::run_schedule(self : Database, schedule : Schedule) -> StopReason {
+pub fn Database::run_schedule(
+  self : Database,
+  schedule : Schedule,
+) -> StopReason {
   match schedule {
     Run(rules) => {
       for rule in rules {
