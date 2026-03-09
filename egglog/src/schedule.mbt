@@ -26,14 +26,6 @@ fn Database::apply_rule(self : Database, rule : Rule) -> Int {
 }
 
 ///|
-/// Count total rows across all tables.
-fn Database::total_rows(self : Database) -> Int {
-  let mut count = 0
-  self.tables.each(fn(_name, table) { count = count + table.row_count() })
-  count
-}
-
-///|
 /// Run a schedule, returning why it stopped.
 fn Database::run_schedule(self : Database, schedule : Schedule) -> StopReason {
   match schedule {
@@ -46,12 +38,9 @@ fn Database::run_schedule(self : Database, schedule : Schedule) -> StopReason {
     }
     Saturate(inner, max_iters) => {
       for i = 0; i < max_iters; i = i + 1 {
-        let size_before = self.uf.size()
-        let rows_before = self.total_rows()
+        let ver = self.version
         let _ = self.run_schedule(inner)
-        let size_after = self.uf.size()
-        let rows_after = self.total_rows()
-        if size_before == size_after && rows_before == rows_after {
+        if self.version == ver {
           return Saturated
         }
       }

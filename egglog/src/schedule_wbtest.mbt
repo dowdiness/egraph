@@ -42,16 +42,20 @@ test "saturate reaches fixed point" {
 test "repeat respects limit" {
   let db = Database::new()
   db.register("Num")
-  let _ = db.call("Num", [IntVal(1)])
+  db.register("Add")
+  let n1 = db.call("Num", [IntVal(1)])
+  let n2 = db.call("Num", [IntVal(2)])
+  let _ = db.call("Add", [n1, n2])
   db.rebuild()
-  // A trivial rule that does nothing
-  let noop : Rule = {
-    name: "noop",
-    query: [Fact("Num", [Lit(IntVal(999)), Var("out")])],
-    actions: [],
+  let comm : Rule = {
+    name: "comm-add",
+    query: [Fact("Add", [Var("a"), Var("b"), Var("out")])],
+    actions: [Union(Var("out"), Call("Add", [Var("b"), Var("a")]))],
   }
-  let reason = db.run_schedule(Repeat(3, Run([noop])))
+  let reason = db.run_schedule(Repeat(2, Run([comm])))
   inspect(reason, content="Saturated")
+  // Verify the rule actually fired during repeat
+  inspect(db.lookup("Add", [n2, n1]) is Some(_), content="true")
 }
 
 ///|

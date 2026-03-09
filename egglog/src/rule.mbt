@@ -30,11 +30,20 @@ pub(all) struct Rule {
 } derive(Show, Debug)
 
 ///|
-/// Evaluate a term under a substitution. Aborts on unbound variables.
+/// Evaluate a term under a substitution, interning new entries via db.call.
+/// Aborts on unbound variables. Used for action execution (not queries).
 fn eval_term(db : Database, subst : Map[String, Value], term : Term) -> Value {
-  match eval_term_opt(db, subst, term) {
-    Some(v) => v
-    None => abort("unbound variable in term")
+  match term {
+    Var(name) =>
+      match subst.get(name) {
+        Some(v) => v
+        None => abort("unbound variable in term")
+      }
+    Lit(v) => v
+    Call(name, args) => {
+      let evaluated = args.map(fn(a) { eval_term(db, subst, a) })
+      db.call(name, evaluated)
+    }
   }
 }
 
@@ -59,7 +68,7 @@ fn execute_actions(
             let ra = db.find(a)
             let rb = db.find(b)
             if ra != rb {
-              let _ = db.union(a, b)
+              db.union(a, b)
               unions = unions + 1
             }
           }

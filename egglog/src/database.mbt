@@ -4,11 +4,12 @@ priv struct Database {
   uf : UnionFind
   tables : Map[String, FunctionTable]
   pending : Array[(Id, Id)]
+  mut version : Int
 }
 
 ///|
 fn Database::new() -> Database {
-  { uf: UnionFind::new(), tables: {}, pending: [] }
+  { uf: UnionFind::new(), tables: {}, pending: [], version: 0 }
 }
 
 ///|
@@ -62,6 +63,7 @@ fn Database::call(self : Database, name : String, args : Array[Value]) -> Value 
     None => {
       let output = IdVal(self.alloc_id())
       let _ = table.insert(canon, output)
+      self.version = self.version + 1
       output
     }
   }
@@ -86,11 +88,15 @@ fn Database::set(
         match (canon_old, canon_val) {
           (IdVal(a), IdVal(b)) => {
             self.pending.push((a, b))
+            self.version = self.version + 1
             table.insert(canon, canon_val)
           }
           _ =>
             match table.merge {
-              Some(_) => table.insert(canon, canon_val)
+              Some(_) => {
+                self.version = self.version + 1
+                table.insert(canon, canon_val)
+              }
               None => canon_old
             }
         }
@@ -98,20 +104,21 @@ fn Database::set(
     }
     None => {
       let _ = table.insert(canon, canon_val)
+      self.version = self.version + 1
       canon_val
     }
   }
 }
 
 ///|
-fn Database::union(self : Database, a : Id, b : Id) -> Id {
+fn Database::union(self : Database, a : Id, b : Id) -> Unit {
   let ra = self.uf.find(a)
   let rb = self.uf.find(b)
   if ra == rb {
-    return ra
+    return
   }
   self.pending.push((ra, rb))
-  ra
+  self.version = self.version + 1
 }
 
 ///|

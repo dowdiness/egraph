@@ -16,7 +16,7 @@ fn eval_term_opt(
           None => return None
         }
       }
-      Some(db.call(name, evaluated))
+      db.lookup(name, evaluated)
     }
   }
 }
