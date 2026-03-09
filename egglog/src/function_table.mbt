@@ -2,20 +2,14 @@
 /// A function table: maps input tuples to output values.
 /// Arity includes the output column (e.g., Add(Expr, Expr) -> Expr has arity 3).
 priv struct FunctionTable {
-  name : String
-  arity : Int
   rows : Map[String, Value]
   raw_keys : Map[String, Array[Value]]
   merge : ((Value, Value) -> Value)?
 }
 
 ///|
-fn FunctionTable::new(
-  name : String,
-  arity : Int,
-  merge : ((Value, Value) -> Value)?,
-) -> FunctionTable {
-  { name, arity, rows: {}, raw_keys: {}, merge }
+fn FunctionTable::new(merge : ((Value, Value) -> Value)?) -> FunctionTable {
+  { rows: {}, raw_keys: {}, merge }
 }
 
 ///|

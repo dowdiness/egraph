@@ -1,8 +1,8 @@
 ///|
 test "run applies rules once" {
   let db = Database::new()
-  db.register("Num", 2, None)
-  db.register("Add", 3, None)
+  db.register("Num")
+  db.register("Add")
   let n1 = db.call("Num", [IntVal(1)])
   let n2 = db.call("Num", [IntVal(2)])
   let _ = db.call("Add", [n1, n2])
@@ -23,8 +23,8 @@ test "run applies rules once" {
 ///|
 test "saturate reaches fixed point" {
   let db = Database::new()
-  db.register("Num", 2, None)
-  db.register("Add", 3, None)
+  db.register("Num")
+  db.register("Add")
   let n1 = db.call("Num", [IntVal(1)])
   let n2 = db.call("Num", [IntVal(2)])
   let _ = db.call("Add", [n1, n2])
@@ -41,7 +41,7 @@ test "saturate reaches fixed point" {
 ///|
 test "repeat respects limit" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let _ = db.call("Num", [IntVal(1)])
   db.rebuild()
   // A trivial rule that does nothing
@@ -57,8 +57,8 @@ test "repeat respects limit" {
 ///|
 test "seq composes schedules" {
   let db = Database::new()
-  db.register("Num", 2, None)
-  db.register("Add", 3, None)
+  db.register("Num")
+  db.register("Add")
   let n1 = db.call("Num", [IntVal(1)])
   let n2 = db.call("Num", [IntVal(2)])
   let _ = db.call("Add", [n1, n2])

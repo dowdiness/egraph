@@ -17,7 +17,7 @@ test "eval_term Var looks up substitution" {
 ///|
 test "eval_term Call creates node in database" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let subst : Map[String, Value] = {}
   let result = eval_term(db, subst, Call("Num", [Lit(IntVal(42))]))
   // Should return an IdVal

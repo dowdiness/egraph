@@ -1,6 +1,6 @@
 ///|
-/// Evaluate a term under substitution, returning None for unbound variables.
-fn eval_term_subst(
+/// Evaluate a term under substitution. Returns None for unbound variables.
+fn eval_term_opt(
   db : Database,
   subst : Map[String, Value],
   term : Term,
@@ -11,7 +11,7 @@ fn eval_term_subst(
     Call(name, args) => {
       let evaluated : Array[Value] = []
       for a in args {
-        match eval_term_subst(db, subst, a) {
+        match eval_term_opt(db, subst, a) {
           Some(v) => evaluated.push(v)
           None => return None
         }
@@ -49,7 +49,7 @@ fn unify_row(
         }
       Lit(v) => if db.canonicalize_value(v) != val { return None }
       Call(_name, _args) =>
-        match eval_term_subst(db, new_subst, term) {
+        match eval_term_opt(db, new_subst, term) {
           Some(evaluated) =>
             if db.canonicalize_value(evaluated) != val {
               return None
@@ -107,7 +107,7 @@ fn execute_query(
     let mut ok = true
     for eq in equals {
       let (lhs, rhs) = eq
-      match (eval_term_subst(db, s, lhs), eval_term_subst(db, s, rhs)) {
+      match (eval_term_opt(db, s, lhs), eval_term_opt(db, s, rhs)) {
         (Some(lval), Some(rval)) =>
           if db.canonicalize_value(lval) != db.canonicalize_value(rval) {
             ok = false

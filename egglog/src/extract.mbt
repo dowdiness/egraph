@@ -8,35 +8,27 @@ pub(all) struct ExtractedExpr {
 
 ///|
 pub impl Show for ExtractedExpr with output(self, logger) {
-  match self.leaf_value {
-    Some(v) =>
-      if self.args.is_empty() {
+  if self.args.is_empty() {
+    // Leaf node
+    match self.leaf_value {
+      Some(v) => {
         logger.write_string("(")
         logger.write_string(self.func_name)
         logger.write_string(" ")
         Show::output(v, logger)
         logger.write_string(")")
-      } else {
-        logger.write_string("(")
-        logger.write_string(self.func_name)
-        for a in self.args {
-          logger.write_string(" ")
-          Show::output(a, logger)
-        }
-        logger.write_string(")")
       }
-    None =>
-      if self.args.is_empty() {
-        logger.write_string(self.func_name)
-      } else {
-        logger.write_string("(")
-        logger.write_string(self.func_name)
-        for a in self.args {
-          logger.write_string(" ")
-          Show::output(a, logger)
-        }
-        logger.write_string(")")
-      }
+      None => logger.write_string(self.func_name)
+    }
+  } else {
+    // Node with children
+    logger.write_string("(")
+    logger.write_string(self.func_name)
+    for a in self.args {
+      logger.write_string(" ")
+      Show::output(a, logger)
+    }
+    logger.write_string(")")
   }
 }
 
@@ -80,9 +72,9 @@ fn Database::extract(
         for k in key {
           match self.canonicalize_value(k) {
             IdVal(child_id) => {
+              // child_id is already canonical from canonicalize_value
               all_primitive = false
-              let canon_child = self.find(child_id)
-              match costs.get(canon_child.0) {
+              match costs.get(child_id.0) {
                 Some(entry) => {
                   let (c, e) = entry
                   child_costs.push(c)

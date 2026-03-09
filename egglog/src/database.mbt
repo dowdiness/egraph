@@ -25,10 +25,9 @@ fn Database::find(self : Database, id : Id) -> Id {
 fn Database::register(
   self : Database,
   name : String,
-  arity : Int,
-  merge : ((Value, Value) -> Value)?,
+  merge? : ((Value, Value) -> Value)? = None,
 ) -> Unit {
-  self.tables[name] = FunctionTable::new(name, arity, merge)
+  self.tables[name] = FunctionTable::new(merge)
 }
 
 ///|
@@ -40,17 +39,29 @@ fn Database::canonicalize_value(self : Database, v : Value) -> Value {
 }
 
 ///|
-fn Database::call(self : Database, name : String, args : Array[Value]) -> Value {
-  let table = match self.tables.get(name) {
+/// Canonicalize an array of values through the union-find.
+fn Database::canon_args(self : Database, args : Array[Value]) -> Array[Value] {
+  args.map(fn(v) { self.canonicalize_value(v) })
+}
+
+///|
+/// Get a table by name, aborting if not found.
+fn Database::get_table(self : Database, name : String) -> FunctionTable {
+  match self.tables.get(name) {
     Some(t) => t
     None => abort("unknown function: " + name)
   }
-  let canon_args : Array[Value] = args.map(fn(v) { self.canonicalize_value(v) })
-  match table.lookup(canon_args) {
+}
+
+///|
+fn Database::call(self : Database, name : String, args : Array[Value]) -> Value {
+  let table = self.get_table(name)
+  let canon = self.canon_args(args)
+  match table.lookup(canon) {
     Some(v) => self.canonicalize_value(v)
     None => {
       let output = IdVal(self.alloc_id())
-      let _ = table.insert(canon_args, output)
+      let _ = table.insert(canon, output)
       output
     }
   }
@@ -63,13 +74,10 @@ fn Database::set(
   args : Array[Value],
   value : Value,
 ) -> Value {
-  let table = match self.tables.get(name) {
-    Some(t) => t
-    None => abort("unknown function: " + name)
-  }
-  let canon_args : Array[Value] = args.map(fn(v) { self.canonicalize_value(v) })
+  let table = self.get_table(name)
+  let canon = self.canon_args(args)
   let canon_val = self.canonicalize_value(value)
-  match table.lookup(canon_args) {
+  match table.lookup(canon) {
     Some(old) => {
       let canon_old = self.canonicalize_value(old)
       if canon_old == canon_val {
@@ -78,19 +86,18 @@ fn Database::set(
         match (canon_old, canon_val) {
           (IdVal(a), IdVal(b)) => {
             self.pending.push((a, b))
-            let merged = table.insert(canon_args, canon_val)
-            merged
+            table.insert(canon, canon_val)
           }
           _ =>
             match table.merge {
-              Some(_) => table.insert(canon_args, canon_val)
+              Some(_) => table.insert(canon, canon_val)
               None => canon_old
             }
         }
       }
     }
     None => {
-      let _ = table.insert(canon_args, canon_val)
+      let _ = table.insert(canon, canon_val)
       canon_val
     }
   }
@@ -127,7 +134,7 @@ fn Database::rebuild_table(self : Database, table : FunctionTable) -> Unit {
   table.raw_keys.clear()
   for pair in old_rows {
     let (key, value) = pair
-    let canon_key : Array[Value] = key.map(fn(v) { self.canonicalize_value(v) })
+    let canon_key = self.canon_args(key)
     let canon_val = self.canonicalize_value(value)
     match table.lookup(canon_key) {
       Some(existing) => {
@@ -157,8 +164,8 @@ fn Database::lookup(
     Some(t) => t
     None => return None
   }
-  let canon_args : Array[Value] = args.map(fn(v) { self.canonicalize_value(v) })
-  match table.lookup(canon_args) {
+  let canon = self.canon_args(args)
+  match table.lookup(canon) {
     Some(v) => Some(self.canonicalize_value(v))
     None => None
   }

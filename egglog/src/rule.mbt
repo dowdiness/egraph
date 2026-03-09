@@ -30,19 +30,11 @@ pub(all) struct Rule {
 } derive(Show, Debug)
 
 ///|
-/// Evaluate a term under a substitution.
+/// Evaluate a term under a substitution. Aborts on unbound variables.
 fn eval_term(db : Database, subst : Map[String, Value], term : Term) -> Value {
-  match term {
-    Var(name) =>
-      match subst.get(name) {
-        Some(v) => v
-        None => abort("unbound variable: " + name)
-      }
-    Lit(v) => v
-    Call(name, args) => {
-      let evaluated : Array[Value] = args.map(fn(t) { eval_term(db, subst, t) })
-      db.call(name, evaluated)
-    }
+  match eval_term_opt(db, subst, term) {
+    Some(v) => v
+    None => abort("unbound variable in term")
   }
 }
 
@@ -54,11 +46,14 @@ fn execute_actions(
   actions : Array[Action],
 ) -> Int {
   let mut unions = 0
+  // Copy subst so LetAction bindings don't leak to caller
+  let bindings : Map[String, Value] = {}
+  subst.each(fn(k, v) { bindings[k] = v })
   for action in actions {
     match action {
       Union(lhs, rhs) => {
-        let lval = eval_term(db, subst, lhs)
-        let rval = eval_term(db, subst, rhs)
+        let lval = eval_term(db, bindings, lhs)
+        let rval = eval_term(db, bindings, rhs)
         match (lval, rval) {
           (IdVal(a), IdVal(b)) => {
             let ra = db.find(a)
@@ -73,14 +68,14 @@ fn execute_actions(
       }
       Set(name, args, val) => {
         let evaluated_args : Array[Value] = args.map(fn(t) {
-          eval_term(db, subst, t)
+          eval_term(db, bindings, t)
         })
-        let evaluated_val = eval_term(db, subst, val)
+        let evaluated_val = eval_term(db, bindings, val)
         let _ = db.set(name, evaluated_args, evaluated_val)
       }
       LetAction(name, term) => {
-        let val = eval_term(db, subst, term)
-        subst[name] = val
+        let val = eval_term(db, bindings, term)
+        bindings[name] = val
       }
     }
   }

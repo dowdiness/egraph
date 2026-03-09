@@ -12,18 +12,16 @@ pub(all) enum Schedule {
 pub(all) enum StopReason {
   Saturated
   IterLimit
-  NodeLimit
 } derive(Eq, Show, Debug)
 
 ///|
-/// Apply a single rule: execute query, then actions for each match.
+/// Apply a single rule without rebuilding. Returns number of new unions.
 fn Database::apply_rule(self : Database, rule : Rule) -> Int {
   let substs = execute_query(self, rule.query)
   let mut total_unions = 0
   for s in substs {
     total_unions = total_unions + execute_actions(self, s, rule.actions)
   }
-  self.rebuild()
   total_unions
 }
 
@@ -43,6 +41,7 @@ fn Database::run_schedule(self : Database, schedule : Schedule) -> StopReason {
       for rule in rules {
         let _ = self.apply_rule(rule)
       }
+      self.rebuild()
       Saturated
     }
     Saturate(inner, max_iters) => {

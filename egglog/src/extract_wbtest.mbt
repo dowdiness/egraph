@@ -1,7 +1,7 @@
 ///|
 test "extract single constant" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let v = db.call("Num", [IntVal(42)])
   db.rebuild()
   match v {
@@ -17,8 +17,8 @@ test "extract single constant" {
 ///|
 test "extract picks cheaper after rewrite" {
   let db = Database::new()
-  db.register("Num", 2, None)
-  db.register("Add", 3, None)
+  db.register("Num")
+  db.register("Add")
   let n0 = db.call("Num", [IntVal(0)])
   let n1 = db.call("Num", [IntVal(1)])
   let add = db.call("Add", [n1, n0])

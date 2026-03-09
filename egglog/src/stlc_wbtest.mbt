@@ -1,19 +1,34 @@
 ///|
+/// Helper: unwrap a Value to an Id, aborting if not an IdVal.
+fn unwrap_id(v : Value) -> Id {
+  match v {
+    IdVal(id) => id
+    _ => abort("expected IdVal")
+  }
+}
+
+///|
+/// Helper: check if two values refer to the same e-class.
+fn same_class(db : Database, a : Value, b : Value) -> Bool {
+  db.find(unwrap_id(a)) == db.find(unwrap_id(b))
+}
+
+///|
 /// Helper: create a database with STLC expression and type constructors.
 fn stlc_db() -> Database {
   let db = Database::new()
   // Expression constructors
-  db.register("Num", 2, None) // Num(int_value) -> expr_id
-  db.register("Var", 2, None) // Var(name) -> expr_id
-  db.register("Add", 3, None) // Add(left, right) -> expr_id
-  db.register("Lam", 3, None) // Lam(param, body) -> expr_id
-  db.register("App", 3, None) // App(func, arg) -> expr_id
+  db.register("Num") // Num(int_value) -> expr_id
+  db.register("Var") // Var(name) -> expr_id
+  db.register("Add") // Add(left, right) -> expr_id
+  db.register("Lam") // Lam(param, body) -> expr_id
+  db.register("App") // App(func, arg) -> expr_id
   // Type constructors
-  db.register("IntTy", 1, None) // IntTy() -> type_id
-  db.register("Arrow", 3, None) // Arrow(domain, codomain) -> type_id
+  db.register("IntTy") // IntTy() -> type_id
+  db.register("Arrow") // Arrow(domain, codomain) -> type_id
   // Relations (merge = keep newer, unification handled by Database::set pending)
-  db.register("HasType", 2, None)
-  db.register("InEnv", 2, None)
+  db.register("HasType")
+  db.register("InEnv")
   db
 }
 
@@ -81,145 +96,62 @@ fn stlc_rules() -> Array[Rule] {
 ///|
 test "num synthesizes IntTy" {
   let db = stlc_db()
-  // Create Num(42)
   let num_e = db.call("Num", [IntVal(42)])
-  db.rebuild()
-  // Run typing rules
-  let rules = stlc_rules()
-  let _ = db.run_schedule(Saturate(Run(rules), 20))
-  // Check HasType(num_e) = IntTy()
+  let _ = db.run_schedule(Saturate(Run(stlc_rules()), 20))
   let int_ty = db.call("IntTy", [])
   let has_type = db.lookup("HasType", [num_e])
-  match has_type {
-    Some(ty) =>
-      inspect(
-        db.find(
-          match ty {
-            IdVal(id) => id
-            _ => abort("expected id")
-          },
-        ) ==
-        db.find(
-          match int_ty {
-            IdVal(id) => id
-            _ => abort("expected id")
-          },
-        ),
-        content="true",
-      )
-    None => inspect(false, content="true")
-  }
+  inspect(same_class(db, has_type.unwrap(), int_ty), content="true")
 }
 
 ///|
 test "var with env synthesizes type" {
   let db = stlc_db()
-  // Create Var("x")
   let var_e = db.call("Var", [StrVal("x")])
-  // Set InEnv("x") = IntTy()
   let int_ty = db.call("IntTy", [])
   let _ = db.set("InEnv", [StrVal("x")], int_ty)
-  db.rebuild()
-  // Run typing rules
-  let rules = stlc_rules()
-  let _ = db.run_schedule(Saturate(Run(rules), 20))
-  // Check HasType(var_e) = IntTy()
+  let _ = db.run_schedule(Saturate(Run(stlc_rules()), 20))
   let has_type = db.lookup("HasType", [var_e])
-  match has_type {
-    Some(IdVal(ty_id)) => {
-      let int_id = match int_ty {
-        IdVal(id) => id
-        _ => abort("expected id")
-      }
-      inspect(db.find(ty_id) == db.find(int_id), content="true")
-    }
-    _ => inspect(false, content="true")
-  }
+  inspect(same_class(db, has_type.unwrap(), int_ty), content="true")
 }
 
 ///|
 test "add synthesizes IntTy" {
   let db = stlc_db()
-  // Create Add(Num(1), Num(2))
   let n1 = db.call("Num", [IntVal(1)])
   let n2 = db.call("Num", [IntVal(2)])
   let add_e = db.call("Add", [n1, n2])
-  db.rebuild()
-  // Run typing rules
-  let rules = stlc_rules()
-  let _ = db.run_schedule(Saturate(Run(rules), 20))
-  // Check HasType(add_e) = IntTy()
+  let _ = db.run_schedule(Saturate(Run(stlc_rules()), 20))
   let int_ty = db.call("IntTy", [])
   let has_type = db.lookup("HasType", [add_e])
-  match has_type {
-    Some(IdVal(ty_id)) => {
-      let int_id = match int_ty {
-        IdVal(id) => id
-        _ => abort("expected id")
-      }
-      inspect(db.find(ty_id) == db.find(int_id), content="true")
-    }
-    _ => inspect(false, content="true")
-  }
+  inspect(same_class(db, has_type.unwrap(), int_ty), content="true")
 }
 
 ///|
 test "lambda checking: top-down type flow" {
   let db = stlc_db()
-  // Create Lam("x", Add(Var("x"), Num(1)))
   let var_x = db.call("Var", [StrVal("x")])
   let num_1 = db.call("Num", [IntVal(1)])
   let body = db.call("Add", [var_x, num_1])
   let lam_e = db.call("Lam", [StrVal("x"), body])
-  // Seed HasType(lam_e) = Arrow(IntTy, IntTy)
   let int_ty = db.call("IntTy", [])
   let arr_ty = db.call("Arrow", [int_ty, int_ty])
   let _ = db.set("HasType", [lam_e], arr_ty)
-  db.rebuild()
-  // Run typing rules
-  let rules = stlc_rules()
-  let _ = db.run_schedule(Saturate(Run(rules), 20))
-  // Check InEnv("x") = IntTy
+  let _ = db.run_schedule(Saturate(Run(stlc_rules()), 20))
   let env_type = db.lookup("InEnv", [StrVal("x")])
-  match env_type {
-    Some(IdVal(ty_id)) => {
-      let int_id = match int_ty {
-        IdVal(id) => id
-        _ => abort("expected id")
-      }
-      inspect(db.find(ty_id) == db.find(int_id), content="true")
-    }
-    _ => inspect(false, content="true")
-  }
+  inspect(same_class(db, env_type.unwrap(), int_ty), content="true")
 }
 
 ///|
 test "app synthesis: both directions cooperate" {
   let db = stlc_db()
-  // Create App(Lam("x", Var("x")), Num(42))
   let var_x = db.call("Var", [StrVal("x")])
-  let lam_body = var_x // identity function body
-  let lam_e = db.call("Lam", [StrVal("x"), lam_body])
+  let lam_e = db.call("Lam", [StrVal("x"), var_x])
   let num_42 = db.call("Num", [IntVal(42)])
   let app_e = db.call("App", [lam_e, num_42])
-  // Seed lam type as Arrow(IntTy, IntTy)
   let int_ty = db.call("IntTy", [])
   let arr_ty = db.call("Arrow", [int_ty, int_ty])
   let _ = db.set("HasType", [lam_e], arr_ty)
-  db.rebuild()
-  // Run typing rules
-  let rules = stlc_rules()
-  let _ = db.run_schedule(Saturate(Run(rules), 20))
-  // Check HasType(app_e) = IntTy
+  let _ = db.run_schedule(Saturate(Run(stlc_rules()), 20))
   let has_type = db.lookup("HasType", [app_e])
-  match has_type {
-    Some(IdVal(ty_id)) => {
-      let int_id = match int_ty {
-        IdVal(id) => id
-        _ => abort("expected id")
-      }
-      inspect(db.find(ty_id) == db.find(int_id), content="true")
-    }
-    _ => inspect(false, content="true")
-  }
+  inspect(same_class(db, has_type.unwrap(), int_ty), content="true")
 }

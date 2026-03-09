@@ -10,7 +10,7 @@ test "fresh id allocation" {
 ///|
 test "register and call function" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let id = db.call("Num", [IntVal(42)])
   inspect(id != IdVal(Id(-1)), content="true")
 }
@@ -18,7 +18,7 @@ test "register and call function" {
 ///|
 test "call same args returns same id" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let id1 = db.call("Num", [IntVal(42)])
   let id2 = db.call("Num", [IntVal(42)])
   inspect(id1 == id2, content="true")
@@ -27,7 +27,7 @@ test "call same args returns same id" {
 ///|
 test "call different args returns different ids" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let id1 = db.call("Num", [IntVal(1)])
   let id2 = db.call("Num", [IntVal(2)])
   inspect(id1 == id2, content="false")
@@ -36,7 +36,7 @@ test "call different args returns different ids" {
 ///|
 test "union and find" {
   let db = Database::new()
-  db.register("Num", 2, None)
+  db.register("Num")
   let v1 = db.call("Num", [IntVal(1)])
   let v2 = db.call("Num", [IntVal(2)])
   match (v1, v2) {
@@ -52,8 +52,8 @@ test "union and find" {
 ///|
 test "congruence closure" {
   let db = Database::new()
-  db.register("Num", 2, None)
-  db.register("Add", 3, None)
+  db.register("Num")
+  db.register("Add")
   let n1 = db.call("Num", [IntVal(1)])
   let n2 = db.call("Num", [IntVal(2)])
   let add1 = db.call("Add", [n1, n2])

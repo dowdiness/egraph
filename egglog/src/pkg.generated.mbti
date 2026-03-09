@@ -71,7 +71,6 @@ pub impl @debug.Debug for Sort
 pub(all) enum StopReason {
   Saturated
   IterLimit
-  NodeLimit
 }
 pub impl Eq for StopReason
 pub impl Show for StopReason
