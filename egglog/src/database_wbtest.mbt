@@ -1,4 +1,8 @@
 ///|
+/// White-box tests for the database layer.
+///
+/// These tests double as executable examples for interning, congruence
+/// closure, and the partial-function semantics of `set`.
 test "fresh id allocation" {
   let db = Database::new()
   let a = db.alloc_id()
@@ -74,6 +78,7 @@ test "congruence closure" {
 }
 
 ///|
+/// Conflicting primitive facts are illegal for non-merged tables.
 test "panic conflicting primitive set without merge aborts" {
   let db = Database::new()
   db.register("Score")
@@ -82,6 +87,7 @@ test "panic conflicting primitive set without merge aborts" {
 }
 
 ///|
+/// A conflict may be discovered only after two input e-classes become equal.
 test "panic rebuild rejects conflicting primitive outputs after union" {
   let db = Database::new()
   db.register("Num")

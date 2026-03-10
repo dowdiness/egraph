@@ -1,10 +1,11 @@
 ///|
+/// Query tests show how substitutions are produced and filtered.
 test "single atom query scans table" {
   let db = Database::new()
   db.register("Num")
   let _ = db.call("Num", [IntVal(1)])
   let _ = db.call("Num", [IntVal(2)])
-  // Query: Num(?x, ?out)
+  // One fact atom scans the whole table and binds both columns.
   let results = execute_query(db, [Fact("Num", [Var("x"), Var("out")])])
   inspect(results.length(), content="2")
 }
@@ -15,7 +16,7 @@ test "single atom with literal filters" {
   db.register("Num")
   let _ = db.call("Num", [IntVal(1)])
   let _ = db.call("Num", [IntVal(2)])
-  // Query: Num(1, ?out) — should match only one row
+  // Literal terms act like selection predicates.
   let results = execute_query(db, [Fact("Num", [Lit(IntVal(1)), Var("out")])])
   inspect(results.length(), content="1")
 }
@@ -28,7 +29,7 @@ test "two atom join with shared variable" {
   let n1 = db.call("Num", [IntVal(1)])
   let n2 = db.call("Num", [IntVal(2)])
   let _ = db.call("Add", [n1, n2])
-  // Query: Num(1, ?x), Add(?x, ?y, ?out)
+  // Shared variables turn two scans into a join.
   let results = execute_query(db, [
     Fact("Num", [Lit(IntVal(1)), Var("x")]),
     Fact("Add", [Var("x"), Var("y"), Var("out")]),
@@ -42,7 +43,7 @@ test "equal constraint filters" {
   db.register("Num")
   let _ = db.call("Num", [IntVal(1)])
   let _ = db.call("Num", [IntVal(2)])
-  // Query: Num(?x, ?out) where ?x = IntVal(1)
+  // Equality atoms behave like a post-join filter.
   let results = execute_query(db, [
     Fact("Num", [Var("x"), Var("out")]),
     Equal(Var("x"), Lit(IntVal(1))),
@@ -55,7 +56,7 @@ test "empty result when no match" {
   let db = Database::new()
   db.register("Num")
   let _ = db.call("Num", [IntVal(1)])
-  // Query: Num(99, ?out) — no such row
+  // No matching row means the whole query result is empty.
   let results = execute_query(db, [Fact("Num", [Lit(IntVal(99)), Var("out")])])
   inspect(results.length(), content="0")
 }

@@ -1,4 +1,5 @@
 ///|
+/// These tests isolate table storage rules from the rest of the e-graph.
 test "insert and lookup row" {
   let ft = FunctionTable::new(None)
   let key : Array[Value] = [IdVal(Id(0)), IdVal(Id(1))]

@@ -1,4 +1,9 @@
 ///|
+/// Output of the extractor.
+///
+/// Extraction reconstructs a tree from the graph, so each child is either a
+/// recursively extracted expression or a primitive leaf that was stored in the
+/// table row.
 /// An extracted argument, preserving whether it was primitive or an e-class.
 pub(all) enum ExtractedArg {
   Expr(ExtractedExpr)
@@ -14,6 +19,7 @@ pub impl Show for ExtractedArg with output(self, logger) {
 }
 
 ///|
+/// Tree-shaped view of one chosen representative expression.
 /// An extracted expression tree.
 pub(all) struct ExtractedExpr {
   func_name : String
@@ -36,7 +42,7 @@ pub impl Show for ExtractedExpr with output(self, logger) {
 }
 
 ///|
-/// Default cost function: 1 + sum of children.
+/// Default structural cost: one node plus the cost of all e-class children.
 pub fn ast_size(_name : String, child_costs : Array[Int]) -> Int {
   let mut total = 1
   for c in child_costs {
@@ -46,15 +52,18 @@ pub fn ast_size(_name : String, child_costs : Array[Int]) -> Int {
 }
 
 ///|
-/// Extract the cheapest expression from an e-class.
+/// Recover the cheapest expression currently known for one e-class.
+///
+/// This is a fixed-point dynamic program over the function tables. A row can be
+/// scored only after all of its `IdVal` children already have extracted costs.
 pub fn Database::extract(
   self : Database,
   root : Id,
   cost_fn : (String, Array[Int]) -> Int,
 ) -> (Int, ExtractedExpr) {
-  // Build a cost map: canonical Id -> (cost, ExtractedExpr)
+  // Best known expression for each canonical e-class.
   let costs : Map[Int, (Int, ExtractedExpr)] = {}
-  // Fixed-point iteration
+  // Repeatedly relax rows until no cheaper expression appears.
   let mut changed = true
   while changed {
     changed = false
@@ -66,7 +75,8 @@ pub fn Database::extract(
           IdVal(id) => self.find(id)
           _ => return
         }
-        // Compute cost for this row
+        // Score the row only if every e-class child already has a chosen best
+        // expression.
         let child_costs : Array[Int] = []
         let child_args : Array[ExtractedArg] = []
         let mut all_available = true
@@ -82,7 +92,7 @@ pub fn Database::extract(
                 None => all_available = false
               }
             v => {
-              // Primitive values don't contribute to child cost
+              // Primitive literals are leaves in the reconstructed AST.
               child_costs.push(0)
               child_args.push(Primitive(v))
             }

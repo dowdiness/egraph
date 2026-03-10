@@ -1,4 +1,5 @@
 ///|
+/// Extraction tests explain how graph-shaped data turns back into a tree.
 test "extract single constant" {
   let db = Database::new()
   db.register("Num")
@@ -23,7 +24,7 @@ test "extract picks cheaper after rewrite" {
   let n1 = db.call("Num", [IntVal(1)])
   let add = db.call("Add", [n1, n0])
   db.rebuild()
-  // Rewrite rule: Add(?x, Num(0)) => ?x
+  // Canonical algebraic simplification: x + 0 rewrites to x.
   let zero_rule : Rule = {
     name: "add-zero",
     query: [
@@ -36,7 +37,7 @@ test "extract picks cheaper after rewrite" {
   match add {
     IdVal(id) => {
       let (cost, expr) = db.extract(id, ast_size)
-      // After rewrite, should prefer Num(1) (cost 1) over Add(Num(1), Num(0)) (cost 3)
+      // Extraction should now prefer the rewritten leaf over the larger tree.
       inspect(cost, content="1")
       inspect(expr, content="(Num IntVal(1))")
     }

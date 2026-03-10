@@ -1,4 +1,5 @@
 ///|
+/// Small tests for the equality engine underneath the database.
 test "fresh id finds itself" {
   let uf = UnionFind::new()
   let a = uf.make_set()

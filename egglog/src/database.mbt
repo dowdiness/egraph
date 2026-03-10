@@ -1,4 +1,9 @@
 ///|
+/// Mutable relational e-graph state.
+///
+/// The database is the bridge between relational storage and equality
+/// reasoning: function tables hold rows, union-find holds equivalence classes,
+/// and `pending` remembers unions that still need to be propagated.
 /// The egglog database: a collection of function tables + union-find.
 pub struct Database {
   priv uf : UnionFind
@@ -18,6 +23,7 @@ fn Database::alloc_id(self : Database) -> Id {
 }
 
 ///|
+/// Canonical representative lookup for one e-class id.
 pub fn Database::find(self : Database, id : Id) -> Id {
   self.uf.find(id)
 }
@@ -38,6 +44,10 @@ pub fn Database::register(
 }
 
 ///|
+/// Rewrite one value through the current union-find state.
+///
+/// Primitive values are already canonical, while `IdVal` changes whenever the
+/// underlying e-class has been merged.
 fn Database::canonicalize_value(self : Database, v : Value) -> Value {
   match v {
     IdVal(id) => IdVal(self.uf.find(id))
@@ -61,6 +71,11 @@ fn Database::get_table(self : Database, name : String) -> FunctionTable {
 }
 
 ///|
+/// Intern a constructor application.
+///
+/// `call` is the "make an e-node" operation: it returns an existing output if
+/// the canonical input tuple was seen before, otherwise it allocates a fresh
+/// e-class for this application.
 pub fn Database::call(
   self : Database,
   name : String,
@@ -142,6 +157,10 @@ pub fn Database::set(
 }
 
 ///|
+/// Request that two e-classes become equal on the next rebuild.
+///
+/// Union is batched so several rule firings can accumulate before tables are
+/// re-canonicalized.
 pub fn Database::union(self : Database, a : Id, b : Id) -> Unit {
   let ra = self.uf.find(a)
   let rb = self.uf.find(b)
@@ -225,6 +244,10 @@ fn Database::rebuild_table(
 }
 
 ///|
+/// Look up a row after canonicalizing the arguments first.
+///
+/// This gives callers the logical answer for the current e-graph state rather
+/// than the answer for some stale pre-rebuild representative.
 pub fn Database::lookup(
   self : Database,
   name : String,

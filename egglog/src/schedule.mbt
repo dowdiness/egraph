@@ -1,4 +1,8 @@
 ///|
+/// Control language for rule execution.
+///
+/// `Run` is a single pass, `Saturate` keeps repeating until the database stops
+/// changing or a limit is hit, and `Repeat`/`Seq` provide simple composition.
 /// A schedule controls how rules are applied.
 pub(all) enum Schedule {
   Run(Array[Rule])
@@ -8,14 +12,17 @@ pub(all) enum Schedule {
 } derive(Show, Debug)
 
 ///|
-/// Why execution stopped.
+/// Coarse status returned by schedule execution.
 pub(all) enum StopReason {
   Saturated
   IterLimit
 } derive(Eq, Show, Debug)
 
 ///|
-/// Apply a single rule without rebuilding. Returns number of new unions.
+/// Fire one rule against the current database snapshot.
+///
+/// Rebuild is intentionally delayed so several matches can enqueue unions
+/// before the tables are canonicalized again.
 fn Database::apply_rule(self : Database, rule : Rule) -> Int {
   let substs = execute_query(self, rule.query)
   let mut total_unions = 0
@@ -26,7 +33,11 @@ fn Database::apply_rule(self : Database, rule : Rule) -> Int {
 }
 
 ///|
-/// Run a schedule, returning why it stopped.
+/// Execute a schedule tree.
+///
+/// The important mental model is: `Run` performs one wave of rule firing,
+/// `rebuild` makes equalities visible, and `Saturate` watches `version` to see
+/// whether another wave is needed.
 pub fn Database::run_schedule(
   self : Database,
   schedule : Schedule,

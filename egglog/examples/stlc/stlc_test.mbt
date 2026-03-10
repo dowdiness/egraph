@@ -1,4 +1,5 @@
 ///|
+/// Executable walkthrough of the STLC example rules.
 test "num synthesizes IntTy" {
   let db = stlc_db()
   let num_e = db.call("Num", [@egglog.IntVal(42)])
@@ -13,6 +14,7 @@ test "var with env synthesizes type" {
   let db = stlc_db()
   let var_e = db.call("Var", [@egglog.StrVal("x")])
   let int_ty = db.call("IntTy", [])
+  // Seed the environment, then let the typing rule derive the variable type.
   let _ = db.set("InEnv", [@egglog.StrVal("x")], int_ty)
   let _ = db.run_schedule(@egglog.Saturate(@egglog.Run(stlc_rules()), 20))
   let has_type = db.lookup("HasType", [var_e])
@@ -40,6 +42,7 @@ test "lambda checking: top-down type flow" {
   let lam_e = db.call("Lam", [@egglog.StrVal("x"), body])
   let int_ty = db.call("IntTy", [])
   let arr_ty = db.call("Arrow", [int_ty, int_ty])
+  // Bidirectional typing starts from the expected lambda type.
   let _ = db.set("HasType", [lam_e], arr_ty)
   let _ = db.run_schedule(@egglog.Saturate(@egglog.Run(stlc_rules()), 20))
   let env_type = db.lookup("InEnv", [@egglog.StrVal("x")])
@@ -55,6 +58,7 @@ test "app synthesis: both directions cooperate" {
   let app_e = db.call("App", [lam_e, num_42])
   let int_ty = db.call("IntTy", [])
   let arr_ty = db.call("Arrow", [int_ty, int_ty])
+  // Once the function type is known, application can synthesize its result.
   let _ = db.set("HasType", [lam_e], arr_ty)
   let _ = db.run_schedule(@egglog.Saturate(@egglog.Run(stlc_rules()), 20))
   let has_type = db.lookup("HasType", [app_e])

@@ -1,4 +1,8 @@
 ///|
+/// Surface syntax for the rule language.
+///
+/// Terms build expressions, atoms describe query patterns, and actions describe
+/// side effects once a match has been found.
 /// A term in the egglog language.
 pub(all) enum Term {
   Var(String)
@@ -30,7 +34,10 @@ pub(all) struct Rule {
 } derive(Show, Debug)
 
 ///|
-/// Evaluate a term under a substitution, interning new entries via db.call.
+/// Action-time term evaluation.
+///
+/// In actions, `Call` is effectful: it interns any missing application through
+/// `db.call`. That is the crucial difference from query evaluation.
 /// Aborts on unbound variables. Used for action execution (not queries).
 fn eval_term(db : Database, subst : Map[String, Value], term : Term) -> Value {
   match term {
@@ -48,14 +55,18 @@ fn eval_term(db : Database, subst : Map[String, Value], term : Term) -> Value {
 }
 
 ///|
-/// Execute actions under a substitution. Returns the number of new unions.
+/// Execute a rule body once a query match has produced bindings.
+///
+/// `Union` grows the pending equality set, `Set` writes functional facts, and
+/// `LetAction` gives later actions a local name for an intermediate value.
+/// Returns the number of new unions.
 fn execute_actions(
   db : Database,
   subst : Map[String, Value],
   actions : Array[Action],
 ) -> Int {
   let mut unions = 0
-  // Copy subst so LetAction bindings don't leak to caller
+  // Copy the match so local lets remain scoped to this one rule firing.
   let bindings : Map[String, Value] = {}
   subst.each(fn(k, v) { bindings[k] = v })
   for action in actions {
@@ -92,14 +103,15 @@ fn execute_actions(
 }
 
 ///|
-/// Sugar for creating a rewrite rule: lhs => rhs for a given function.
+/// Sugar for the common "match one function row, then union its output with a
+/// replacement term" pattern.
 fn rewrite(
   name : String,
   func_name : String,
   args : Array[Term],
   rhs : Term,
 ) -> Rule {
-  // Build variable names for pattern matching
+  // Query the function row and bind its output to a synthetic variable.
   let query_terms : Array[Term] = []
   let output_var = "__out"
   for a in args {

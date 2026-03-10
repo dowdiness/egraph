@@ -9,6 +9,18 @@ The core idea is:
 - `union(a, b)` states that two e-classes are equal.
 - `rebuild()` propagates those equalities through every table.
 
+## Reading Guide
+
+If you want to learn the implementation in source order, this sequence works
+well:
+
+1. `types.mbt` and `union_find.mbt` for the runtime building blocks.
+2. `function_table.mbt` and `database.mbt` for storage and rebuild semantics.
+3. `join.mbt` and `rule.mbt` for query matching and rule execution.
+4. `schedule.mbt` for repeated application.
+5. `extract.mbt` for turning an e-class back into a tree.
+6. `examples/stlc/stlc.mbt` for a complete worked example.
+
 ## Functional Table Semantics
 
 Every registered table is treated as a function on canonicalized arguments.
@@ -34,6 +46,20 @@ tables. This avoids silent first-writer-wins behavior after equality collapse.
   join operation.
 - If you want multiple primitive outputs for the same key, model that as a
   relation instead of a functional table.
+
+## Execution Pipeline
+
+Most interesting executions follow the same loop:
+
+1. Use `call` and `set` to build an initial database.
+2. Use `run_schedule` to fire rules.
+3. Let `rebuild` canonicalize table rows after unions.
+4. Use `lookup` to inspect derived facts or `extract` to choose a representative
+   expression.
+
+That split is important because equality is not applied eagerly to every row.
+Instead, unions are batched and then propagated through the tables during
+rebuild.
 
 ## Example: Constructors And Lookup
 
@@ -90,3 +116,14 @@ match (red, blue) {
   _ => abort("expected ids")
 }
 ```
+
+## Tests As Tutorials
+
+The white-box tests in `src/*_wbtest.mbt` are intentionally small and focused.
+They are useful as executable notes for:
+
+- how interning and congruence closure work,
+- how the query matcher extends substitutions,
+- how schedules drive repeated rule firing,
+- how extraction chooses a cheapest representative,
+- and how the functional-table conflict semantics behave.

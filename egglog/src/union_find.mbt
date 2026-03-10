@@ -1,4 +1,9 @@
 ///|
+/// Tiny disjoint-set forest used to maintain e-class representatives.
+///
+/// This is the equality engine underneath the relational tables: tables store
+/// rows, while union-find decides which `Id`s currently refer to the same
+/// e-class.
 /// E-class identifier. Newtype wrapper around Int for type safety.
 pub(all) struct Id(Int) derive(Eq, Compare, Hash, Debug)
 
@@ -12,6 +17,7 @@ pub impl Show for Id with output(self, logger) {
 type Rank = Int
 
 ///|
+/// Parent-pointer forest with near-constant amortized operations.
 /// Union-Find with path compression and union by rank.
 priv struct UnionFind {
   parents : Array[Id]
@@ -24,6 +30,7 @@ fn UnionFind::new() -> UnionFind {
 }
 
 ///|
+/// Allocate a singleton set whose parent is itself.
 fn UnionFind::make_set(self : UnionFind) -> Id {
   let id = Id(self.parents.length())
   self.parents.push(id)
@@ -32,6 +39,7 @@ fn UnionFind::make_set(self : UnionFind) -> Id {
 }
 
 ///|
+/// Find the canonical representative and compress the traversed path.
 fn UnionFind::find(self : UnionFind, id : Id) -> Id {
   let mut current = id
   while self.parents[current.0] != current {
@@ -48,6 +56,7 @@ fn UnionFind::find(self : UnionFind, id : Id) -> Id {
 }
 
 ///|
+/// Union two sets by rank, returning the chosen representative.
 fn UnionFind::union(self : UnionFind, a : Id, b : Id) -> Id {
   let root_a = self.find(a)
   let root_b = self.find(b)
@@ -70,6 +79,7 @@ fn UnionFind::union(self : UnionFind, a : Id, b : Id) -> Id {
 }
 
 ///|
+/// Number of allocated elements, not the number of distinct e-classes.
 fn UnionFind::size(self : UnionFind) -> Int {
   self.parents.length()
 }

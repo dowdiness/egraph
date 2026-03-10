@@ -1,4 +1,5 @@
 ///|
+/// Schedule tests document the control flow around rule application.
 test "run applies rules once" {
   let db = Database::new()
   db.register("Num")
@@ -7,7 +8,7 @@ test "run applies rules once" {
   let n2 = db.call("Num", [IntVal(2)])
   let _ = db.call("Add", [n1, n2])
   db.rebuild()
-  // Rule: Add(?a, ?b, ?out) => Add(?b, ?a, ?out) (commutativity)
+  // One pass of a commutativity rule should intern the swapped node.
   let comm : Rule = {
     name: "comm-add",
     query: [Fact("Add", [Var("a"), Var("b"), Var("out")])],
@@ -15,7 +16,7 @@ test "run applies rules once" {
   }
   let reason = db.run_schedule(Run([comm]))
   inspect(reason, content="Saturated")
-  // After rule, Add(n2, n1) should exist
+  // The new row is visible after the rebuild that happens inside `Run`.
   let result = db.lookup("Add", [n2, n1])
   inspect(result is Some(_), content="true")
 }
@@ -77,6 +78,7 @@ test "seq composes schedules" {
 }
 
 ///|
+/// A merge that keeps the old value should not force another saturation round.
 fn max_int_value(old : Value, new : Value) -> Value {
   match (old, new) {
     (IntVal(lhs), IntVal(rhs)) => IntVal(if lhs >= rhs { lhs } else { rhs })

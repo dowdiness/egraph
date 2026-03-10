@@ -1,4 +1,5 @@
 ///|
+/// Rule tests focus on the little language used by schedules.
 test "eval_term Lit returns value" {
   let db = Database::new()
   let subst : Map[String, Value] = {}
@@ -20,7 +21,7 @@ test "eval_term Call creates node in database" {
   db.register("Num")
   let subst : Map[String, Value] = {}
   let result = eval_term(db, subst, Call("Num", [Lit(IntVal(42))]))
-  // Should return an IdVal
+  // Action-time calls intern missing rows, so the result is an e-class id.
   match result {
     IdVal(_) => inspect(true, content="true")
     _ => inspect(false, content="true")

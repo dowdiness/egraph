@@ -1,4 +1,9 @@
 ///|
+/// Small STLC example built on top of the egglog package.
+///
+/// The point of this file is educational: it shows how constructors become
+/// tables, how typing judgments become functional facts, and how typing rules
+/// become relational rewrites.
 /// Helper: unwrap a Value to an Id, aborting if not an IdVal.
 fn unwrap_id(v : @egglog.Value) -> @egglog.Id {
   match v {
@@ -21,16 +26,16 @@ pub fn same_class(
 /// Create a database with STLC expression and type constructors.
 pub fn stlc_db() -> @egglog.Database {
   let db = @egglog.Database::new()
-  // Expression constructors
+  // Expression constructors intern syntax into e-classes.
   db.register("Num") // Num(int_value) -> expr_id
   db.register("Var") // Var(name) -> expr_id
   db.register("Add") // Add(left, right) -> expr_id
   db.register("Lam") // Lam(param, body) -> expr_id
   db.register("App") // App(func, arg) -> expr_id
-  // Type constructors
+  // Type constructors are also just function tables.
   db.register("IntTy") // IntTy() -> type_id
   db.register("Arrow") // Arrow(domain, codomain) -> type_id
-  // Relations (merge = keep newer, unification handled by Database::set pending)
+  // Typing relations are modeled as partial functions on canonical arguments.
   db.register("HasType")
   db.register("InEnv")
   db
@@ -38,6 +43,10 @@ pub fn stlc_db() -> @egglog.Database {
 
 ///|
 /// Create STLC bidirectional typing rules.
+///
+/// Each rule mirrors a familiar typing judgment, but encoded as:
+/// - a query over existing rows
+/// - a set of actions that write new facts
 pub fn stlc_rules() -> Array[@egglog.Rule] {
   [
     // type-num: Num(?n, ?e) => Set HasType(?e) = IntTy()

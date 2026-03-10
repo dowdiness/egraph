@@ -1,4 +1,10 @@
 ///|
+/// Low-level storage for one functional symbol.
+///
+/// Each table maps canonicalized input tuples to exactly one output value.
+/// Conflict policy lives here: duplicate rows are ignored, merge tables combine
+/// competing values, and plain tables leave conflict detection to higher-level
+/// database logic.
 /// A function table: maps input tuples to output values.
 /// Arity includes the output column (e.g., Add(Expr, Expr) -> Expr has arity 3).
 priv struct FunctionTable {
@@ -13,7 +19,10 @@ fn FunctionTable::new(merge : ((Value, Value) -> Value)?) -> FunctionTable {
 }
 
 ///|
-/// Serialize a key array to a string for map lookup.
+/// Serialize a key array to a stable string for map lookup.
+///
+/// The NUL separator prevents accidental collisions between adjacent printed
+/// values such as `["ab", "c"]` and `["a", "bc"]`.
 fn key_string(key : Array[Value]) -> String {
   let buf = StringBuilder::new()
   for i, v in key {
@@ -26,7 +35,10 @@ fn key_string(key : Array[Value]) -> String {
 }
 
 ///|
-/// Insert a row. Returns the stored output value.
+/// Insert or merge one row.
+///
+/// Returns `(stored_value, changed)` where `changed` tells callers whether the
+/// table's semantic content changed. That signal feeds scheduling and rebuild.
 fn FunctionTable::insert(
   self : FunctionTable,
   key : Array[Value],
@@ -60,16 +72,22 @@ fn FunctionTable::insert(
 }
 
 ///|
+/// Look up the output for one canonical key.
 fn FunctionTable::lookup(self : FunctionTable, key : Array[Value]) -> Value? {
   self.rows.get(key_string(key))
 }
 
 ///|
+/// Count materialized rows in the table.
 fn FunctionTable::row_count(self : FunctionTable) -> Int {
   self.rows.length()
 }
 
 ///|
+/// Scan every row while recovering the original structured key.
+///
+/// `rows` stores only serialized keys for indexing, so `raw_keys` keeps a copy
+/// that higher layers can rebuild and pattern-match against.
 fn FunctionTable::scan(self : FunctionTable) -> Array[(Array[Value], Value)] {
   let result : Array[(Array[Value], Value)] = []
   self.rows.each(fn(ks, v) {

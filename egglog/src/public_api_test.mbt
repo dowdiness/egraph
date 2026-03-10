@@ -1,4 +1,6 @@
 ///|
+/// Black-box smoke test showing the public API is sufficient for a tiny use
+/// case without white-box helpers.
 test "public database api is usable from blackbox tests" {
   let db = Database::new()
   db.register("Num")
