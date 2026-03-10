@@ -23,6 +23,12 @@ pub fn Database::find(self : Database, id : Id) -> Id {
 }
 
 ///|
+/// Register a functional table.
+///
+/// Tables are keyed by canonicalized arguments. Without a merge function, a
+/// table behaves like a partial function: each canonical key may have at most
+/// one canonical output. Provide `merge` only when conflicting primitive
+/// outputs should be combined rather than rejected.
 pub fn Database::register(
   self : Database,
   name : String,
@@ -74,6 +80,13 @@ pub fn Database::call(
 }
 
 ///|
+/// Set the output for a functional table row.
+///
+/// Semantics:
+/// - same canonical key + same canonical value: no-op
+/// - same canonical key + two `IdVal`s: enqueue a union
+/// - same canonical key + primitive conflict + merge fn: resolve with merge
+/// - same canonical key + primitive conflict + no merge fn: abort
 pub fn Database::set(
   self : Database,
   name : String,
@@ -105,7 +118,17 @@ pub fn Database::set(
                 }
                 stored
               }
-              None => canon_old
+              None =>
+                abort(
+                  "conflicting outputs for " +
+                  name +
+                  " on " +
+                  canon.to_string() +
+                  ": " +
+                  canon_old.to_string() +
+                  " vs " +
+                  canon_val.to_string(),
+                )
             }
         }
       }
@@ -130,6 +153,12 @@ pub fn Database::union(self : Database, a : Id, b : Id) -> Unit {
 }
 
 ///|
+/// Rebuild all tables after pending unions.
+///
+/// Rebuild re-canonicalizes every stored row. If two rows collapse to the same
+/// canonical key, the same functional-table semantics used by `set` apply
+/// again: `IdVal` outputs unify, merge tables resolve conflicts, and non-merge
+/// primitive conflicts abort.
 pub fn Database::rebuild(self : Database) -> Unit {
   while self.pending.length() > 0 {
     let batch = self.pending.copy()
@@ -138,12 +167,20 @@ pub fn Database::rebuild(self : Database) -> Unit {
       let (a, b) = pair
       let _ = self.uf.union(a, b)
     }
-    self.tables.each(fn(_name, table) { self.rebuild_table(table) })
+    self.tables.each(fn(name, table) { self.rebuild_table(name, table) })
   }
 }
 
 ///|
-fn Database::rebuild_table(self : Database, table : FunctionTable) -> Unit {
+/// Reinsert a table under current canonical representatives.
+///
+/// This is where equality collapse can turn previously distinct rows into a
+/// conflict on the same canonical key.
+fn Database::rebuild_table(
+  self : Database,
+  name : String,
+  table : FunctionTable,
+) -> Unit {
   let old_rows = table.scan()
   table.rows.clear()
   table.raw_keys.clear()
@@ -156,10 +193,28 @@ fn Database::rebuild_table(self : Database, table : FunctionTable) -> Unit {
         let canon_existing = self.canonicalize_value(existing)
         if canon_existing != canon_val {
           match (canon_existing, canon_val) {
-            (IdVal(a), IdVal(b)) => self.pending.push((a, b))
-            _ => ()
+            (IdVal(a), IdVal(b)) => {
+              self.pending.push((a, b))
+              let _ = table.insert(canon_key, canon_val)
+            }
+            _ =>
+              match table.merge {
+                Some(_) => {
+                  let _ = table.insert(canon_key, canon_val)
+                }
+                None =>
+                  abort(
+                    "conflicting outputs for " +
+                    name +
+                    " on " +
+                    canon_key.to_string() +
+                    ": " +
+                    canon_existing.to_string() +
+                    " vs " +
+                    canon_val.to_string(),
+                  )
+              }
           }
-          let _ = table.insert(canon_key, canon_val)
         }
       }
       None => {

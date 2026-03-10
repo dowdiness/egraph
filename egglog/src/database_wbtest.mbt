@@ -72,3 +72,29 @@ test "congruence closure" {
     _ => abort("expected IdVal")
   }
 }
+
+///|
+test "panic conflicting primitive set without merge aborts" {
+  let db = Database::new()
+  db.register("Score")
+  let _ = db.set("Score", [IntVal(1)], IntVal(10))
+  ignore(db.set("Score", [IntVal(1)], IntVal(20)))
+}
+
+///|
+test "panic rebuild rejects conflicting primitive outputs after union" {
+  let db = Database::new()
+  db.register("Num")
+  db.register("Color")
+  let n1 = db.call("Num", [IntVal(1)])
+  let n2 = db.call("Num", [IntVal(2)])
+  let _ = db.set("Color", [n1], StrVal("red"))
+  let _ = db.set("Color", [n2], StrVal("blue"))
+  match (n1, n2) {
+    (IdVal(id1), IdVal(id2)) => {
+      db.union(id1, id2)
+      db.rebuild()
+    }
+    _ => abort("expected IdVal")
+  }
+}
