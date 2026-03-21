@@ -64,6 +64,7 @@ rebuild.
 ## Example: Constructors And Lookup
 
 ```mbt check
+///|
 test "interning constructors returns one canonical row per key" {
   let db = Database::new()
   db.register("Num")
@@ -77,6 +78,7 @@ test "interning constructors returns one canonical row per key" {
 ## Example: Merge Tables Resolve Primitive Conflicts
 
 ```mbt check
+///|
 fn max_int_value(old : Value, new : Value) -> Value {
   match (old, new) {
     (IntVal(lhs), IntVal(rhs)) => IntVal(if lhs >= rhs { lhs } else { rhs })
@@ -84,6 +86,7 @@ fn max_int_value(old : Value, new : Value) -> Value {
   }
 }
 
+///|
 test "merge tables combine conflicting primitive outputs" {
   let db = Database::new()
   db.register("Score", merge=Some(max_int_value))

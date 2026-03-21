@@ -105,6 +105,7 @@ fn execute_actions(
 ///|
 /// Sugar for the common "match one function row, then union its output with a
 /// replacement term" pattern.
+#warnings("-unused_value")
 fn rewrite(
   name : String,
   func_name : String,

@@ -19,6 +19,7 @@ type Rank = Int
 ///|
 /// Parent-pointer forest with near-constant amortized operations.
 /// Union-Find with path compression and union by rank.
+#warnings("-unused_value")
 priv struct UnionFind {
   parents : Array[Id]
   ranks : Array[Rank]
@@ -80,6 +81,7 @@ fn UnionFind::union(self : UnionFind, a : Id, b : Id) -> Id {
 
 ///|
 /// Number of allocated elements, not the number of distinct e-classes.
+#warnings("-unused_value")
 fn UnionFind::size(self : UnionFind) -> Int {
   self.parents.length()
 }
