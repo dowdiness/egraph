@@ -1,0 +1,123 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/egglog/src"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn ast_size(String, Array[Int]) -> Int
+
+// Errors
+
+// Types and methods
+pub(all) enum Action {
+  Union(Term, Term)
+  Set(String, Array[Term], Term)
+  LetAction(String, Term)
+}
+pub impl Show for Action
+pub impl @debug.Debug for Action
+
+pub(all) enum Atom {
+  Fact(String, Array[Term])
+  Equal(Term, Term)
+}
+pub impl Show for Atom
+pub impl @debug.Debug for Atom
+
+pub struct Database {
+  // private fields
+}
+pub fn Database::call(Self, String, Array[Value]) -> Value
+pub fn Database::extract(Self, Id, (String, Array[Int]) -> Int) -> (Int, ExtractedExpr)
+pub fn Database::find(Self, Id) -> Id
+pub fn Database::lookup(Self, String, Array[Value]) -> Value?
+pub fn Database::new() -> Self
+pub fn Database::rebuild(Self) -> Unit
+pub fn Database::register(Self, String, merge? : ((Value, Value) -> Value)?) -> Unit
+pub fn Database::run_schedule(Self, Schedule) -> StopReason
+pub fn Database::set(Self, String, Array[Value], Value) -> Value
+pub fn Database::union(Self, Id, Id) -> Unit
+
+pub(all) enum ExtractedArg {
+  Expr(ExtractedExpr)
+  Primitive(Value)
+}
+pub impl Show for ExtractedArg
+pub impl @debug.Debug for ExtractedArg
+
+pub(all) struct ExtractedExpr {
+  func_name : String
+  args : Array[ExtractedArg]
+}
+pub impl Show for ExtractedExpr
+pub impl @debug.Debug for ExtractedExpr
+
+pub(all) struct Id(Int)
+#deprecated
+pub fn Id::inner(Self) -> Int
+pub impl Compare for Id
+pub impl Eq for Id
+pub impl Hash for Id
+pub impl Show for Id
+pub impl @debug.Debug for Id
+
+pub(all) struct Rule {
+  name : String
+  query : Array[Atom]
+  actions : Array[Action]
+}
+pub impl Show for Rule
+pub impl @debug.Debug for Rule
+
+pub(all) enum Schedule {
+  Run(Array[Rule])
+  Saturate(Schedule, Int)
+  Repeat(Int, Schedule)
+  Seq(Array[Schedule])
+}
+pub impl Show for Schedule
+pub impl @debug.Debug for Schedule
+
+pub(all) enum Sort {
+  EqSort(String)
+  PrimitiveSort(String)
+}
+pub impl Eq for Sort
+pub impl Hash for Sort
+pub impl Show for Sort
+pub impl @debug.Debug for Sort
+
+pub(all) enum StopReason {
+  Saturated
+  IterLimit
+}
+pub impl Eq for StopReason
+pub impl Show for StopReason
+pub impl @debug.Debug for StopReason
+
+pub(all) enum Term {
+  Var(String)
+  Lit(Value)
+  Call(String, Array[Term])
+}
+pub impl Eq for Term
+pub impl Show for Term
+pub impl @debug.Debug for Term
+
+pub(all) enum Value {
+  IdVal(Id)
+  IntVal(Int)
+  StrVal(String)
+}
+pub impl Compare for Value
+pub impl Eq for Value
+pub impl Hash for Value
+pub impl Show for Value
+pub impl @debug.Debug for Value
+
+// Type aliases
+
+// Traits
+

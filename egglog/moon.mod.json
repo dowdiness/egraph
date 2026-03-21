@@ -1,0 +1,7 @@
+{
+  "name": "dowdiness/egglog",
+  "version": "0.1.0",
+  "license": "Apache-2.0",
+  "keywords": ["egglog", "e-graph", "datalog", "equality-saturation", "relational"],
+  "description": "Relational e-graph engine (egglog) in MoonBit"
+}
