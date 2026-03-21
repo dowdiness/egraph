@@ -51,6 +51,10 @@ pub fn Database::run_schedule(
       Saturated
     }
     Saturate(inner, max_iters) => {
+      // Flush any pending unions so the first pass sees up-to-date tables.
+      if self.pending.length() > 0 {
+        self.rebuild()
+      }
       for i = 0; i < max_iters; i = i + 1 {
         let ver = self.version
         let _ = self.run_schedule(inner)

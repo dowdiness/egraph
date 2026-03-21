@@ -47,6 +47,11 @@ pub fn stlc_db() -> @egglog.Database {
 /// Each rule mirrors a familiar typing judgment, but encoded as:
 /// - a query over existing rows
 /// - a set of actions that write new facts
+///
+/// **Limitation:** `InEnv` is keyed by variable name globally, so nested
+/// lambdas that shadow the same name (e.g. `λx. λx. x`) cannot receive
+/// different types for each binding. A production encoding would thread an
+/// explicit environment id or use de Bruijn indices.
 pub fn stlc_rules() -> Array[@egglog.Rule] {
   [
     // type-num: Num(?n, ?e) => Set HasType(?e) = IntTy()

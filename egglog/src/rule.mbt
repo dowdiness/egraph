@@ -103,6 +103,19 @@ fn execute_actions(
 }
 
 ///|
+/// Collect all variable names used in a term.
+fn collect_vars(term : Term, names : Map[String, Unit]) -> Unit {
+  match term {
+    Var(n) => names[n] = ()
+    Lit(_) => ()
+    Call(_, ts) =>
+      for t in ts {
+        collect_vars(t, names)
+      }
+  }
+}
+
+///|
 /// Sugar for the common "match one function row, then union its output with a
 /// replacement term" pattern.
 #warnings("-unused_value")
@@ -112,9 +125,20 @@ fn rewrite(
   args : Array[Term],
   rhs : Term,
 ) -> Rule {
-  // Query the function row and bind its output to a synthetic variable.
+  // Collect all variable names in args and rhs to avoid capture.
+  let used : Map[String, Unit] = {}
+  for a in args {
+    collect_vars(a, used)
+  }
+  collect_vars(rhs, used)
+  let mut output_var = "__out"
+  let mut i = 0
+  while used.contains(output_var) {
+    output_var = "__out" + i.to_string()
+    i = i + 1
+  }
+  // Query the function row and bind its output to the fresh variable.
   let query_terms : Array[Term] = []
-  let output_var = "__out"
   for a in args {
     query_terms.push(a)
   }

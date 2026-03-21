@@ -40,3 +40,19 @@ test "rewrite sugar creates correct rule" {
   inspect(rule.query.length(), content="1")
   inspect(rule.actions.length(), content="1")
 }
+
+///|
+test "rewrite avoids capturing __out variable" {
+  // If args or rhs use "__out", the synthetic variable must pick a fresh name.
+  let rule = rewrite("test", "F", [Var("__out")], Var("__out"))
+  // The query should have 2 terms: the user's __out and a fresh synthetic var.
+  match rule.query[0] {
+    Fact(_, terms) =>
+      // Last term is the synthetic output variable.
+      match terms[terms.length() - 1] {
+        Var(name) => inspect(name != "__out", content="true")
+        _ => inspect(false, content="true")
+      }
+    _ => inspect(false, content="true")
+  }
+}

@@ -78,6 +78,31 @@ test "seq composes schedules" {
 }
 
 ///|
+test "saturate flushes pending unions before first pass" {
+  let db = Database::new()
+  db.register("Num")
+  db.register("HasType")
+  let n1 = db.call("Num", [IntVal(1)])
+  let n2 = db.call("Num", [IntVal(2)])
+  // Queue a union but don't rebuild yet.
+  match (n1, n2) {
+    (IdVal(a), IdVal(b)) => db.union(a, b)
+    _ => abort("expected IdVal")
+  }
+  // The rule reads HasType — if pending unions aren't flushed, the Saturate
+  // loop could declare saturation without the union taking effect.
+  let _ = db.set("HasType", [n1], IntVal(99))
+  let rule : Rule = {
+    name: "propagate",
+    query: [Fact("HasType", [Var("e"), Var("t")])],
+    actions: [],
+  }
+  let _ = db.run_schedule(Saturate(Run([rule]), 10))
+  // After saturation, n1 and n2 should be in the same e-class.
+  inspect(db.find(Id(0)) == db.find(Id(1)), content="true")
+}
+
+///|
 /// A merge that keeps the old value should not force another saturation round.
 fn max_int_value(old : Value, new : Value) -> Value {
   match (old, new) {
