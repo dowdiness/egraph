@@ -13,24 +13,34 @@ priv enum LambdaLang {
   LLam(String, Id)
   LApp(Id, Id)
   LLet(String, Id, Id)
+  LMinus(Id, Id)
+  LIf(Id, Id, Id)
+  LBool(Bool)
+  LIsZero(Id)
+  LSubst(String, Id, Id)
 } derive(Eq, Hash, Compare, Show, Debug)
 
 ///|
 impl ENode for LambdaLang with arity(self) {
   match self {
-    LNum(_) | LVar(_) => 0
-    LAdd(_, _) | LMul(_, _) | LApp(_, _) => 2
-    LLam(_, _) => 1
+    LNum(_) | LVar(_) | LBool(_) => 0
+    LLam(_, _) | LIsZero(_) => 1
+    LAdd(_, _) | LMul(_, _) | LApp(_, _) | LMinus(_, _) | LSubst(_, _, _) => 2
     LLet(_, _, _) => 2
+    LIf(_, _, _) => 3
   }
 }
 
 ///|
 impl ENode for LambdaLang with child(self, i) {
   match self {
-    LAdd(a, b) | LMul(a, b) | LApp(a, b) => if i == 0 { a } else { b }
-    LLam(_, body) => body
-    LLet(_, value, body) => if i == 0 { value } else { body }
+    LAdd(a, b) | LMul(a, b) | LApp(a, b) | LMinus(a, b) =>
+      if i == 0 { a } else { b }
+    LLam(_, body) | LIsZero(body) => body
+    LLet(_, value, body) | LSubst(_, value, body) =>
+      if i == 0 { value } else { body }
+    LIf(c, t, fb) =>
+      if i == 0 { c } else if i == 1 { t } else { fb }
     _ => abort("no children")
   }
 }
@@ -38,12 +48,16 @@ impl ENode for LambdaLang with child(self, i) {
 ///|
 impl ENode for LambdaLang with map_children(self, f) {
   match self {
-    LNum(_) | LVar(_) => self
+    LNum(_) | LVar(_) | LBool(_) => self
     LAdd(a, b) => LAdd(f(a), f(b))
     LMul(a, b) => LMul(f(a), f(b))
     LApp(a, b) => LApp(f(a), f(b))
+    LMinus(a, b) => LMinus(f(a), f(b))
     LLam(name, body) => LLam(name, f(body))
+    LIsZero(inner) => LIsZero(f(inner))
     LLet(name, value, body) => LLet(name, f(value), f(body))
+    LSubst(name, value, expr) => LSubst(name, f(value), f(expr))
+    LIf(c, t, fb) => LIf(f(c), f(t), f(fb))
   }
 }
 
@@ -57,6 +71,11 @@ impl ENodeRepr for LambdaLang with op_tag(self) {
     LLam(_, _) => "Lam"
     LApp(_, _) => "App"
     LLet(_, _, _) => "Let"
+    LMinus(_, _) => "Minus"
+    LIf(_, _, _) => "If"
+    LBool(_) => "Bool"
+    LIsZero(_) => "IsZero"
+    LSubst(_, _, _) => "Subst"
   }
 }
 
@@ -67,6 +86,8 @@ impl ENodeRepr for LambdaLang with payload(self) {
     LVar(name) => Some(name)
     LLam(name, _) => Some(name)
     LLet(name, _, _) => Some(name)
+    LBool(b) => Some(b.to_string())
+    LSubst(name, _, _) => Some(name)
     _ => None
   }
 }
@@ -81,6 +102,16 @@ impl ENodeRepr for LambdaLang with from_op(tag, payload, children) {
     ("App", None, 2) => Some(LApp(children[0], children[1]))
     ("Lam", Some(name), 1) => Some(LLam(name, children[0]))
     ("Let", Some(name), 2) => Some(LLet(name, children[0], children[1]))
+    ("Minus", None, 2) => Some(LMinus(children[0], children[1]))
+    ("If", None, 3) => Some(LIf(children[0], children[1], children[2]))
+    ("Bool", Some(s), 0) =>
+      match s {
+        "true" => Some(LBool(true))
+        "false" => Some(LBool(false))
+        _ => None
+      }
+    ("IsZero", None, 1) => Some(LIsZero(children[0]))
+    ("Subst", Some(name), 2) => Some(LSubst(name, children[0], children[1]))
     _ => None
   }
 }
@@ -429,6 +460,23 @@ test "lambda: from_op with invalid Num payload returns None" {
   // Non-numeric payload for Num returns None (caught by try/catch in from_op)
   let result = LambdaLang::from_op("Num", Some("not_a_number"), [])
   assert_eq(result, None)
+}
+
+///|
+test "lambda: new variant ENodeRepr round-trip" {
+  let cases : Array[(LambdaLang, String, String?, Array[Id])] = [
+    (LBool(true), "Bool", Some("true"), []),
+    (LBool(false), "Bool", Some("false"), []),
+    (LMinus(Id(0), Id(1)), "Minus", None, [Id(0), Id(1)]),
+    (LIf(Id(0), Id(1), Id(2)), "If", None, [Id(0), Id(1), Id(2)]),
+    (LIsZero(Id(0)), "IsZero", None, [Id(0)]),
+    (LSubst("x", Id(0), Id(1)), "Subst", Some("x"), [Id(0), Id(1)]),
+  ]
+  for c in cases {
+    let (expected, tag, payload, children) = c
+    let result = LambdaLang::from_op(tag, payload, children)
+    assert_eq(result, Some(expected))
+  }
 }
 
 // ── E-Class Analysis tests (Step 8) ──
