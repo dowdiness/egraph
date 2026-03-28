@@ -1328,15 +1328,27 @@ fn[L, D] AnalyzedEGraph::recompute_data(
   if class_ids.length() == 0 {
     return
   }
-  // Fixed number of relaxation passes to propagate new child facts
-  // through parents after congruence changes.
+  // Bellman-Ford relaxation: propagate analysis data up through parent
+  // e-classes. Each pass can only carry new information one level higher in
+  // the dependency graph, so a chain of depth D converges in D+1 passes.
+  // The upper bound of class_ids.length() passes is tight only for a
+  // linear dependency chain; flat graphs (all leaves) converge in 1 pass.
   let pass_count = class_ids.length()
+  // lookup reads self.data, which holds the previous pass's results.
+  // This is intentional: it makes each pass a snapshot-consistent read,
+  // matching Bellman-Ford's "previous distances" semantics.
   let lookup = fn(child) { self.get_data(child) }
   for pass = 0; pass < pass_count; pass = pass + 1 {
+    // Compute new data for every class into a fresh map. We never write
+    // back to self.data mid-pass so that all classes in this pass see the
+    // same consistent view of the previous pass's data.
     let next_data : Map[Id, D] = {}
     for id in class_ids {
       match self.egraph.classes.get(id) {
         Some(eclass) => {
+          // Fold make() over every e-node in the class, then join with merge().
+          // An e-class is the join of all its members, so the analysis datum
+          // is the join (least upper bound) of each node's datum.
           let mut combined : D? = None
           for node in eclass.nodes {
             let d = (self.analysis.make)(node, lookup)
@@ -1350,6 +1362,8 @@ fn[L, D] AnalyzedEGraph::recompute_data(
           }
           match combined {
             Some(d) => next_data[id] = d
+            // No nodes produced data; preserve the existing datum so we
+            // don't lose information already accumulated for this class.
             None =>
               match self.data.get(id) {
                 Some(old) => next_data[id] = old
@@ -1357,6 +1371,8 @@ fn[L, D] AnalyzedEGraph::recompute_data(
               }
           }
         }
+        // Class id is not in the current e-graph (stale slot); carry forward
+        // whatever data we have rather than silently dropping it.
         None =>
           match self.data.get(id) {
             Some(old) => next_data[id] = old
@@ -1364,9 +1380,33 @@ fn[L, D] AnalyzedEGraph::recompute_data(
           }
       }
     }
+    // Early-termination check: did any class gain new information?
+    // We cannot use D : Eq, but the semilattice gives us an equivalent test:
+    //   merge(old, new).a_changed == true  iff  new ⊄ old
+    //   (i.e., new carries information the old datum did not have)
+    // This check must happen before self.data.clear() — we still need the
+    // previous pass's values for comparison.
+    let mut any_changed = false
+    for id, new_d in next_data {
+      match self.data.get(id) {
+        Some(old_d) => {
+          let (_, did_merge) = (self.analysis.merge)(old_d, new_d)
+          if did_merge.a_changed {
+            any_changed = true
+          }
+        }
+        // No previous datum: this is genuinely new information.
+        None => any_changed = true
+      }
+    }
     self.data.clear()
     for id, d in next_data {
       self.data[id] = d
+    }
+    // Fixed point reached: every class's datum already subsumed next_data.
+    // Remaining passes would produce identical results, so stop early.
+    if not(any_changed) {
+      break
     }
   }
 }
