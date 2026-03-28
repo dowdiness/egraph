@@ -126,7 +126,8 @@ fn apply_subst(
 /// Combined analysis: free-variable tracking + constant folding.
 ///
 /// `make` computes EvalState bottom-up from child data.
-/// `merge` unions FV sets and preserves agreeing constant values.
+/// `merge` intersects FV sets (equivalent terms share the same semantic FV)
+///   and preserves agreeing constant values.
 fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
   {
     make: fn(node, get_data) {
