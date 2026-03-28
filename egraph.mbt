@@ -1006,11 +1006,12 @@ fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
 /// Tracks whether merging changed either side of a union.
 /// `a_changed`: the first argument was updated.
 /// `b_changed`: the second argument was updated.
-/// Used by `rebuild` to skip `modify` when data is already stable.
+/// Returned by `Analysis.merge`; will be consumed by `BackoffScheduler`
+/// to skip `modify` on classes whose data is already stable.
 pub struct DidMerge {
   a_changed : Bool
   b_changed : Bool
-} derive(Eq, Show)
+} derive(Eq, Show, Debug)
 
 ///|
 pub fn DidMerge::both() -> DidMerge {

@@ -23,6 +23,7 @@ pub fn DidMerge::changed(Self) -> Bool
 pub fn DidMerge::neither() -> Self
 pub impl Eq for DidMerge
 pub impl Show for DidMerge
+pub impl @debug.Debug for DidMerge
 
 pub(all) struct Id(Int)
 #deprecated

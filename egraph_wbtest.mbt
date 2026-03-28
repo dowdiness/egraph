@@ -669,9 +669,10 @@ test "analysis: simple constant folding with TestLang" {
       }
     },
     merge: fn(a, b) {
+      // Produce None on conflict to satisfy commutativity: merge(a,b) == merge(b,a).
       let result = match (a, b) {
-        (Some(x), _) => Some(x)
-        (_, Some(y)) => Some(y)
+        (Some(x), Some(y)) => if x == y { Some(x) } else { None }
+        (Some(x), None) | (None, Some(x)) => Some(x)
         _ => None
       }
       let a_changed = a != result
