@@ -1,5 +1,7 @@
 # DidMerge Implementation Plan
 
+**Status: Complete** — merged in PR #3 (2026-03-28).
+
 **Goal:** Add `DidMerge` — a two-boolean struct returned by `Analysis.merge` that records
 whether either argument changed. `rebuild` uses this to skip re-running `modify` on classes
 whose analysis data is already stable, and lays the foundation for `BackoffScheduler`.
