@@ -1181,11 +1181,19 @@ priv struct Analysis[L, D] {
   /// Compute data for a single e-node. `get_data` looks up children's data.
   make : (L, (Id) -> D) -> D
   /// Combine data from two e-classes being merged.
-  /// Returns the merged data and a `DidMerge` indicating which side changed.
-  /// Must be commutative: `merge(a, b).0 == merge(b, a).0`.
-  /// Must be associative: `merge(a, merge(b, c)).0 == merge(merge(a, b), c).0`.
-  /// (Both laws are required because `rebuild` folds `merge` over arbitrarily
-  /// many nodes in a class, and the fold order is not guaranteed.)
+  /// Returns the merged datum and a `DidMerge` indicating which side changed.
+  ///
+  /// Required algebraic laws:
+  ///   Commutative:  `merge(a, b).0 == merge(b, a).0`
+  ///   Associative:  `merge(a, merge(b, c)).0 == merge(merge(a, b), c).0`
+  ///   Idempotent:   `merge(a, a).0 == a`  (implied by the above + DidMerge semantics)
+  /// Both commutativity and associativity are required because `rebuild` folds
+  /// `merge` over arbitrarily many nodes in a class in unspecified order.
+  ///
+  /// `DidMerge` contract: `a_changed` must be true iff `merge(a,b).0 != a`,
+  /// and `b_changed` iff `merge(a,b).0 != b`. This is used by `recompute_data`
+  /// to detect convergence without requiring `D : Eq`. Violating this contract
+  /// can cause early termination to produce stale analysis data.
   merge : (D, D) -> (D, DidMerge)
   /// Post-merge hook: may add nodes or union classes based on analysis data.
   modify : (AnalyzedEGraph[L, D], Id) -> Unit
@@ -1328,15 +1336,31 @@ fn[L, D] AnalyzedEGraph::recompute_data(
   if class_ids.length() == 0 {
     return
   }
-  // Fixed number of relaxation passes to propagate new child facts
-  // through parents after congruence changes.
+  // Bellman-Ford-style relaxation: propagate analysis data up through parent
+  // e-classes. Each pass reads the previous pass's data (snapshot consistency),
+  // so new information travels at most one dependency level per pass.
+  // The loop bound of class_ids.length() guarantees termination for any
+  // analysis — it is tight only for a linear chain; flat graphs converge in
+  // 1 pass and early termination exits before the bound is reached.
+  // Note: unlike classic Bellman-Ford (monotone decreasing), analysis data may
+  // both increase and decrease; convergence relies on the pass bound and the
+  // idempotence of merge, not on monotonicity.
   let pass_count = class_ids.length()
+  // lookup reads self.data, which holds the previous pass's results.
+  // This is intentional: it makes each pass a snapshot-consistent read,
+  // matching Bellman-Ford's "previous distances" semantics.
   let lookup = fn(child) { self.get_data(child) }
   for pass = 0; pass < pass_count; pass = pass + 1 {
+    // Compute new data for every class into a fresh map. We never write
+    // back to self.data mid-pass so that all classes in this pass see the
+    // same consistent view of the previous pass's data.
     let next_data : Map[Id, D] = {}
     for id in class_ids {
       match self.egraph.classes.get(id) {
         Some(eclass) => {
+          // Fold make() over every e-node in the class, then join with merge().
+          // An e-class is the join of all its members, so the analysis datum
+          // is the join (least upper bound) of each node's datum.
           let mut combined : D? = None
           for node in eclass.nodes {
             let d = (self.analysis.make)(node, lookup)
@@ -1350,6 +1374,8 @@ fn[L, D] AnalyzedEGraph::recompute_data(
           }
           match combined {
             Some(d) => next_data[id] = d
+            // No nodes produced data; preserve the existing datum so we
+            // don't lose information already accumulated for this class.
             None =>
               match self.data.get(id) {
                 Some(old) => next_data[id] = old
@@ -1357,6 +1383,8 @@ fn[L, D] AnalyzedEGraph::recompute_data(
               }
           }
         }
+        // Class id is not in the current e-graph (stale slot); carry forward
+        // whatever data we have rather than silently dropping it.
         None =>
           match self.data.get(id) {
             Some(old) => next_data[id] = old
@@ -1364,9 +1392,37 @@ fn[L, D] AnalyzedEGraph::recompute_data(
           }
       }
     }
+    // Early-termination check: did any class's datum change this pass?
+    // We cannot use D : Eq, but merge gives an equivalent test:
+    //   a_changed || b_changed  iff  old and new differ in the lattice.
+    // a_changed alone would miss strict decreases: e.g. when two conflicting
+    // constants merge, Some(5) becomes None. merge(Some(5), None) = Some(5)
+    // with a_changed=false — the decrease is invisible to a_changed alone,
+    // and a dependent parent would never be recomputed. Both flags false means
+    // merge(old, new) == old == new: the data is unchanged.
+    // This check must happen before self.data.clear() — we still need the
+    // previous pass's values for comparison.
+    let mut any_changed = false
+    for id, new_d in next_data {
+      match self.data.get(id) {
+        Some(old_d) => {
+          let (_, did_merge) = (self.analysis.merge)(old_d, new_d)
+          if did_merge.a_changed || did_merge.b_changed {
+            any_changed = true
+          }
+        }
+        // No previous datum: this is genuinely new information.
+        None => any_changed = true
+      }
+    }
     self.data.clear()
     for id, d in next_data {
       self.data[id] = d
+    }
+    // Fixed point reached: every class's datum already subsumed next_data.
+    // Remaining passes would produce identical results, so stop early.
+    if not(any_changed) {
+      break
     }
   }
 }

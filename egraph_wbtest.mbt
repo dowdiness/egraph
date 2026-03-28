@@ -700,6 +700,62 @@ test "analysis: simple constant folding with TestLang" {
 }
 
 ///|
+// Regression test for early-termination bug: data that DECREASES (Some → None)
+// must propagate to grandparents. The bug: merge(Some(x), None).a_changed=false
+// so a child's decrease is invisible. The fix: a_changed || b_changed.
+//
+// The bug only manifests with a depth-2 dependency chain. At depth 1, the
+// decrease happens in canonicalize_data before recompute_data, so lookup already
+// reads None in pass 1 and the grandparent is updated correctly. At depth 2:
+//   Pass 1: B sees Y=None (from canonicalize), B decreases Some(3)→None.
+//           a_changed=false → missed. C reads B's OLD value Some(3) → stays Some(8).
+//   Break (bug): C is left at Some(8) even though it should be None.
+//   With fix: b_changed=true for B's change → any_changed=true → pass 2 runs.
+//   Pass 2: C sees B=None → C becomes None. Correct.
+test "analysis: data decrease propagates through depth-2 chain" {
+  let analysis : Analysis[TestLang, Int?] = {
+    make: fn(node, get_data) {
+      match node {
+        Num(n) => Some(n)
+        Add(a, b) =>
+          match (get_data(a), get_data(b)) {
+            (Some(x), Some(y)) => Some(x + y)
+            _ => None
+          }
+      }
+    },
+    merge: fn(a, b) {
+      let result = match (a, b) {
+        (Some(x), Some(y)) => if x == y { Some(x) } else { None }
+        (Some(x), None) | (None, Some(x)) => Some(x)
+        _ => None
+      }
+      (result, { a_changed: a != result, b_changed: b != result })
+    },
+    modify: fn(_eg, _id) {  },
+  }
+  let eg = AnalyzedEGraph::new(analysis)
+  // C = Add(B, X) where B = Add(Y, Z): depth-2 chain
+  let y = eg.add(Num(1))
+  let z = eg.add(Num(2))
+  let b = eg.add(Add(y, z)) // Some(3)
+  let x = eg.add(Num(5))
+  let c = eg.add(Add(b, x)) // Some(8)
+  eg.rebuild()
+  assert_eq(eg.get_data(c), Some(8))
+  // Union Y with a conflicting constant. canonicalize_data sets Y=None.
+  // recompute_data pass 1: B sees Y=None → B becomes None (decrease).
+  // Pass 2 must then propagate None to C.
+  let n99 = eg.add(Num(99))
+  eg.union(y, n99) |> ignore
+  eg.rebuild()
+  assert_eq(eg.get_data(eg.find(y)), None)
+  assert_eq(eg.get_data(eg.find(b)), None)
+  // Without the fix, C stays Some(8). With the fix, C correctly becomes None.
+  assert_eq(eg.get_data(eg.find(c)), None)
+}
+
+///|
 test "many unions converge to single root" {
   let uf = UnionFind()
   let ids : Array[Id] = []

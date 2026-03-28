@@ -111,9 +111,7 @@ test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
 /// Baseline: ~1.49 ms (dominated by construction + first rebuild).
 test "rebuild: setup + one union + rebuild" (b : @bench.T) {
   b.bench(fn() {
-    let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(
-      cf_analysis(),
-    )
+    let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
     let nums : Array[Id] = []
     for i = 0; i < 100; i = i + 1 {
       nums.push(eg.add(Num(i)))
