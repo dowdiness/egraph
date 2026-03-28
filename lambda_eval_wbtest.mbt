@@ -45,6 +45,9 @@ fn fv_add_except(
 ///|
 /// Reduce `LSubst(x, v_id, e_node)` by dispatching on the structure of `e_node`.
 /// Unions `subst_class` with the reduced form when a rule applies.
+/// Two cases leave `subst_class` unreduced:
+///   - Genuine capture: `LLam`/`LLet` binder `y` where `y ∈ FV(v)` and `x ∈ FV(body)`.
+///   - `LSubst` node: `modify` re-dispatches it once the inner e-class reduces.
 fn apply_subst(
   eg : AnalyzedEGraph[LambdaLang, EvalState],
   subst_class : Id,
@@ -118,8 +121,7 @@ fn apply_subst(
         eg.union(subst_class, eg.add(LLet(y, new_val, body_id))) |> ignore
       }
     // else: genuine capture (y ∈ FV(v) and x ∈ FV(body)): leave LSubst unreduced
-    // LSubst is re-dispatched by modify once its inner e-class reduces — skip here.
-    LSubst(_, _, _) => ()
+    LSubst(_, _, _) => () // re-dispatched by modify once inner e-class reduces
   }
 }
 
