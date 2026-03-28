@@ -5,5 +5,8 @@
   "repository": "https://github.com/dowdiness/egraph",
   "license": "Apache-2.0",
   "keywords": ["e-graph", "equality-saturation", "rewriting", "optimization", "compiler"],
-  "description": "Equality graph (e-graph) library in MoonBit"
+  "description": "Equality graph (e-graph) library in MoonBit",
+  "deps": {
+    "dowdiness/lambda": { "path": "../examples/lambda" }
+  }
 }
