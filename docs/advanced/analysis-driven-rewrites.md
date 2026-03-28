@@ -27,7 +27,7 @@ priv struct Analysis[L, D] {
 ```
 
 - **`make(node, get_data)`** — Compute the analysis datum for a single e-node. The `get_data` function looks up the data of child e-classes.
-- **`merge(a, b)`** — Combine data when two e-classes are unioned. Returns the merged datum and a `DidMerge` tracking which side changed. Must be commutative and associative (it forms a join-semilattice). `rebuild` folds `merge` over arbitrarily many nodes, so both laws are required.
+- **`merge(a, b)`** — Combine data when two e-classes are unioned. Returns the merged datum and a `DidMerge` tracking which side changed. Must be commutative, associative, and idempotent (`merge(a,a).0 == a`). `rebuild` folds `merge` over arbitrarily many nodes in unspecified order, so all three laws are required. `DidMerge` must be accurate: `a_changed` iff the result differs from `a`, `b_changed` iff the result differs from `b` — `recompute_data` uses these flags to detect convergence without `D : Eq`. Note: `merge` does not need to be a join (least upper bound); conflict-dropping merges like `merge(Some(x), Some(y)) = None when x≠y` are valid and commonly used.
 - **`modify(egraph, id)`** — Post-merge hook. May inspect the data for e-class `id` and react by calling `egraph.add()` or `egraph.union()`.
 
 The analysis is stored in `AnalyzedEGraph[L, D]`, which wraps a plain `EGraph[L]` and maintains a parallel `data : Map[Id, D]`.

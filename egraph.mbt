@@ -1181,11 +1181,19 @@ priv struct Analysis[L, D] {
   /// Compute data for a single e-node. `get_data` looks up children's data.
   make : (L, (Id) -> D) -> D
   /// Combine data from two e-classes being merged.
-  /// Returns the merged data and a `DidMerge` indicating which side changed.
-  /// Must be commutative: `merge(a, b).0 == merge(b, a).0`.
-  /// Must be associative: `merge(a, merge(b, c)).0 == merge(merge(a, b), c).0`.
-  /// (Both laws are required because `rebuild` folds `merge` over arbitrarily
-  /// many nodes in a class, and the fold order is not guaranteed.)
+  /// Returns the merged datum and a `DidMerge` indicating which side changed.
+  ///
+  /// Required algebraic laws:
+  ///   Commutative:  `merge(a, b).0 == merge(b, a).0`
+  ///   Associative:  `merge(a, merge(b, c)).0 == merge(merge(a, b), c).0`
+  ///   Idempotent:   `merge(a, a).0 == a`  (implied by the above + DidMerge semantics)
+  /// Both commutativity and associativity are required because `rebuild` folds
+  /// `merge` over arbitrarily many nodes in a class in unspecified order.
+  ///
+  /// `DidMerge` contract: `a_changed` must be true iff `merge(a,b).0 != a`,
+  /// and `b_changed` iff `merge(a,b).0 != b`. This is used by `recompute_data`
+  /// to detect convergence without requiring `D : Eq`. Violating this contract
+  /// can cause early termination to produce stale analysis data.
   merge : (D, D) -> (D, DidMerge)
   /// Post-merge hook: may add nodes or union classes based on analysis data.
   modify : (AnalyzedEGraph[L, D], Id) -> Unit
@@ -1328,11 +1336,15 @@ fn[L, D] AnalyzedEGraph::recompute_data(
   if class_ids.length() == 0 {
     return
   }
-  // Bellman-Ford relaxation: propagate analysis data up through parent
-  // e-classes. Each pass can only carry new information one level higher in
-  // the dependency graph, so a chain of depth D converges in D+1 passes.
-  // The upper bound of class_ids.length() passes is tight only for a
-  // linear dependency chain; flat graphs (all leaves) converge in 1 pass.
+  // Bellman-Ford-style relaxation: propagate analysis data up through parent
+  // e-classes. Each pass reads the previous pass's data (snapshot consistency),
+  // so new information travels at most one dependency level per pass.
+  // The loop bound of class_ids.length() guarantees termination for any
+  // analysis — it is tight only for a linear chain; flat graphs converge in
+  // 1 pass and early termination exits before the bound is reached.
+  // Note: unlike classic Bellman-Ford (monotone decreasing), analysis data may
+  // both increase and decrease; convergence relies on the pass bound and the
+  // idempotence of merge, not on monotonicity.
   let pass_count = class_ids.length()
   // lookup reads self.data, which holds the previous pass's results.
   // This is intentional: it makes each pass a snapshot-consistent read,
