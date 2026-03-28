@@ -1,5 +1,7 @@
 # Advanced E-Graph Documentation Suite — Implementation Plan
 
+**Status: Complete** — all 8 documents written and published to `docs/advanced/`.
+
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 **Goal:** Create 8 documents (1 index + 7 topics) in `docs/advanced/` covering advanced e-graph usage.
