@@ -1034,7 +1034,10 @@ pub fn DidMerge::neither() -> DidMerge {
 }
 
 ///|
-/// True if either argument changed — i.e. the e-graph needs more work.
+/// True if either argument's analysis data changed.
+/// `BackoffScheduler` uses this to prioritize which classes need re-examination.
+/// Note: a union with unchanged data can still expose new structural work
+/// (e.g. new nodes in the merged class), so this does not capture all e-graph changes.
 pub fn DidMerge::changed(self : DidMerge) -> Bool {
   self.a_changed || self.b_changed
 }
@@ -1047,6 +1050,9 @@ priv struct Analysis[L, D] {
   /// Combine data from two e-classes being merged.
   /// Returns the merged data and a `DidMerge` indicating which side changed.
   /// Must be commutative: `merge(a, b).0 == merge(b, a).0`.
+  /// Must be associative: `merge(a, merge(b, c)).0 == merge(merge(a, b), c).0`.
+  /// (Both laws are required because `rebuild` folds `merge` over arbitrarily
+  /// many nodes in a class, and the fold order is not guaranteed.)
   merge : (D, D) -> (D, DidMerge)
   /// Post-merge hook: may add nodes or union classes based on analysis data.
   modify : (AnalyzedEGraph[L, D], Id) -> Unit
