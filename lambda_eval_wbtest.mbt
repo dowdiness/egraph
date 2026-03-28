@@ -8,7 +8,8 @@ enum ValLit {
 ///|
 /// Combined analysis data per e-class.
 ///
-/// `fv`: free variables (sound over-approximation — set-union on merge).
+/// `fv`: free variables (sound over-approximation — set-intersection on merge,
+///   because two equivalent terms share the same semantic free-variable set).
 /// `val`: known constant value if this e-class reduces to a literal.
 struct EvalState {
   fv : @hashset.HashSet[String]
@@ -97,8 +98,11 @@ fn apply_subst(
         // Safe: y ∉ FV(v), no capture possible
         let new_body = eg.add(LSubst(x, v_id, body_id))
         eg.union(subst_class, eg.add(LLam(y, new_body))) |> ignore
+      } else if not(eg.get_data(body_id).fv.contains(x)) {
+        // x ∉ FV(body): substitution is a no-op inside body despite y ∈ FV(v)
+        eg.union(subst_class, eg.add(LLam(y, body_id))) |> ignore
       }
-    // Capture case (y ∈ FV(v)): leave LSubst unreduced
+    // else: genuine capture (y ∈ FV(v) and x ∈ FV(body)): leave LSubst unreduced
     LLet(y, val_id, body_id) =>
       if x == y {
         // x is shadowed in body — substitute only in the binding value
@@ -108,8 +112,12 @@ fn apply_subst(
         let new_val = eg.add(LSubst(x, v_id, val_id))
         let new_body = eg.add(LSubst(x, v_id, body_id))
         eg.union(subst_class, eg.add(LLet(y, new_val, new_body))) |> ignore
+      } else if not(eg.get_data(body_id).fv.contains(x)) {
+        // x ∉ FV(body): substitute in value only; body is unchanged
+        let new_val = eg.add(LSubst(x, v_id, val_id))
+        eg.union(subst_class, eg.add(LLet(y, new_val, body_id))) |> ignore
       }
-    // Capture case: leave LSubst unreduced
+    // else: genuine capture (y ∈ FV(v) and x ∈ FV(body)): leave LSubst unreduced
     _ => ()
   }
 }
@@ -196,9 +204,15 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
       { fv, val }
     },
     merge: fn(a, b) {
+      // Intersection: equivalent terms share the same semantic FV set.
+      // Intersection is tighter than union and eliminates stale FV entries
+      // left by unreduced LSubst nodes after they are unified with normal forms.
       let fv : @hashset.HashSet[String] = @hashset.new()
-      fv_union(fv, a.fv)
-      fv_union(fv, b.fv)
+      for x in a.fv {
+        if b.fv.contains(x) {
+          fv.add(x)
+        }
+      }
       let val = match (a.val, b.val) {
         (Some(v1), Some(v2)) => if v1 == v2 { Some(v1) } else { None }
         (Some(v), None) | (None, Some(v)) => Some(v)
