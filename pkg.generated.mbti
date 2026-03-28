@@ -10,11 +10,6 @@ import {
 // Errors
 
 // Types and methods
-pub struct BackoffScheduler {
-  match_limit : Int
-  stats : Map[String, RuleStats]
-}
-
 type CostFn[L]
 
 pub struct DidMerge {
@@ -47,8 +42,6 @@ pub fn Pat::parse(String) -> Self raise
 pub impl Eq for Pat
 pub impl Show for Pat
 pub impl @debug.Debug for Pat
-
-type RuleStats
 
 pub(all) struct Subst(Map[String, Id])
 #alias("_[_]")

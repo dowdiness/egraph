@@ -779,8 +779,8 @@ test "BackoffScheduler: same result as Runner for well-behaved rules" {
   let rules = [
     rewrite("add-zero-right", "(Add ?x (Num:0))", "?x"),
     rewrite("add-zero-left", "(Add (Num:0) ?x)", "?x"),
-    rewrite("mul-one-right", "(Add ?x (Num:0))", "?x"),
-    rewrite("mul-one-left", "(Add (Num:0) ?x)", "?x"),
+    rewrite("mul-one-right", "(Mul ?x (Num:1))", "?x"),
+    rewrite("mul-one-left", "(Mul (Num:1) ?x)", "?x"),
   ]
   let sched = BackoffScheduler::new()
   let reason = sched.run(eg, rules)
@@ -800,20 +800,22 @@ test "BackoffScheduler: ban tracking" {
   let sched = BackoffScheduler::new(match_limit=2)
   // Not banned initially
   assert_true(sched.can_apply("r", 0))
-  // First offense at iter 0: ban_length=1, banned_until=0+1=1
-  sched.did_apply("r", 5, 0)
-  // iter=0 >= banned_until=1 is false — banned
-  assert_false(sched.can_apply("r", 0))
-  // iter=1 >= banned_until=1 is true — allowed again at iter 1
-  assert_true(sched.can_apply("r", 1))
-  // Second offense at iter 1: ban_length doubles to 2, banned_until=1+2=3
-  sched.did_apply("r", 5, 1)
-  // iter=1 >= 3 is false — still banned
-  assert_false(sched.can_apply("r", 1))
-  // iter=2 >= 3 is false — still banned
-  assert_false(sched.can_apply("r", 2))
-  // iter=3 >= 3 is true — allowed again at iter 3
-  assert_true(sched.can_apply("r", 3))
+  // First offense at iter 0: ban_length=1, banned_until=0+1+1=2
+  // Skips exactly 1 future iteration (iter 1).
+  sched.did_search("r", 5, 0)
+  assert_false(sched.can_apply("r", 1)) // iter=1 >= 2 is false — banned
+  assert_true(sched.can_apply("r", 2)) // iter=2 >= 2 is true  — allowed again
+  // Second offense at iter 2: ban_length doubles to 2, banned_until=2+2+1=5
+  // Skips exactly 2 future iterations (iters 3 and 4).
+  sched.did_search("r", 5, 2)
+  assert_false(sched.can_apply("r", 3)) // 3 >= 5 is false — banned
+  assert_false(sched.can_apply("r", 4)) // 4 >= 5 is false — banned
+  assert_true(sched.can_apply("r", 5)) // 5 >= 5 is true  — allowed again
+  // Third offense at iter 5: ban_length doubles to 4, banned_until=5+4+1=10
+  // Skips exactly 4 future iterations (iters 6-9).
+  sched.did_search("r", 5, 5)
+  assert_false(sched.can_apply("r", 9))
+  assert_true(sched.can_apply("r", 10))
 }
 
 ///|

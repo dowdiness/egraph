@@ -985,35 +985,45 @@ fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
 
 // ── BackoffScheduler (Exponential-Backoff Rule Scheduler) ──
 //
-// Extends the equality saturation loop with per-rule match budgets.
-// Explosive rules (commutativity, associativity) can match an exponential
-// number of times each iteration, quickly bloating the e-graph.
+// Extends the equality saturation loop with per-rule search budgets.
+// Explosive rules (commutativity, associativity) can produce an exponential
+// number of pattern matches each iteration, quickly bloating the e-graph.
 //
 // BackoffScheduler mitigates this by:
-//   1. Counting matches produced by each rule per iteration.
-//   2. Banning any rule that exceeds `match_limit` matches.
+//   1. Counting search matches produced by each rule per iteration.
+//   2. Banning any rule that exceeds `match_limit` search matches.
 //   3. Doubling the ban length each time the same rule is banned again.
+//
+// Ban semantics: a rule banned at iteration `i` with `ban_length = k` is
+// skipped for iterations i+1 through i+k (inclusive) — exactly `k` skipped
+// iterations. `ban_length` starts at 1 and doubles on each repeat offense.
 //
 // This gives explosive rules exponentially less budget over time while
 // leaving well-behaved rules completely unaffected.
+//
+// Known limitation: if all rules are currently banned, `applied == 0`
+// returns `Saturated` even though some rules will become eligible later.
+// This is the standard BackoffScheduler trade-off (egg uses the same
+// approach): it conserves compute at the cost of potentially early exit.
 
 ///|
 /// Per-rule state tracked by the scheduler.
-struct RuleStats {
+priv struct RuleStats {
   mut ban_length : Int // Current ban duration; doubles each time rule is banned
-  mut banned_until : Int // First iteration when rule is allowed again; 0 = not banned
+  mut banned_until : Int // First iteration rule is allowed again; 0 = not banned
 }
 
 ///|
 /// Exponential-backoff rule scheduler.
 ///
-/// Tracks per-rule match counts. When a rule matches more than `match_limit`
-/// times in a single iteration, it is banned for `ban_length` iterations and
-/// `ban_length` doubles. This prevents explosive rules (commutativity,
-/// associativity) from dominating the saturation budget.
+/// Tracks per-rule search match counts. When a rule produces more than
+/// `match_limit` matches in a single iteration, it is banned for `ban_length`
+/// iterations and `ban_length` doubles. This prevents explosive rules
+/// (commutativity, associativity) from dominating the saturation budget.
 ///
-/// Default `match_limit` is 1000.
-pub struct BackoffScheduler {
+/// Default `match_limit` is 1000. Rule names must be unique across the
+/// rules array passed to `run` — duplicate names share the same backoff bucket.
+priv struct BackoffScheduler {
   match_limit : Int
   stats : Map[String, RuleStats]
 }
@@ -1037,14 +1047,16 @@ fn BackoffScheduler::can_apply(
 }
 
 ///|
-/// Called after applying a rule. Bans it if match_count exceeded the limit.
-fn BackoffScheduler::did_apply(
+/// Called after searching. Bans the rule if search_matches exceeded the limit.
+/// A ban at iteration `i` with current `ban_length` skips iterations
+/// i+1 through i+ban_length (i.e. exactly `ban_length` future iterations).
+fn BackoffScheduler::did_search(
   self : BackoffScheduler,
   name : String,
-  match_count : Int,
+  search_matches : Int,
   iter : Int,
 ) -> Unit {
-  if match_count > self.match_limit {
+  if search_matches > self.match_limit {
     let s = match self.stats.get(name) {
       Some(s) => s
       None => {
@@ -1053,7 +1065,9 @@ fn BackoffScheduler::did_apply(
         fresh
       }
     }
-    s.banned_until = iter + s.ban_length
+    // banned_until = iter + ban_length + 1 so exactly ban_length future
+    // iterations are skipped: can_apply returns false for iter+1..iter+ban_length.
+    s.banned_until = iter + s.ban_length + 1
     s.ban_length = s.ban_length * 2
   }
 }
@@ -1061,8 +1075,10 @@ fn BackoffScheduler::did_apply(
 ///|
 /// Run equality saturation with exponential-backoff scheduling.
 ///
-/// Rules that match more than `match_limit` times in one iteration are
-/// banned for an exponentially growing number of subsequent iterations.
+/// Rules that produce more than `match_limit` search matches in one iteration
+/// are banned for an exponentially growing number of subsequent iterations.
+/// Returns `Saturated` when no rule applied (including when all rules are
+/// temporarily banned — see module-level comment for the known limitation).
 fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
   self : BackoffScheduler,
   egraph : EGraph[L],
@@ -1072,10 +1088,12 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
 ) -> StopReason {
   for iter = 0; iter < iter_limit; iter = iter + 1 {
     // === Read Phase ===
+    // Collect matches only for non-banned rules; record search counts for backoff.
     let all_matches : Array[(Rewrite, Array[(Id, Subst)])] = []
     for rule in rules {
       if self.can_apply(rule.name, iter) {
         let matches = egraph.search(rule.lhs)
+        self.did_search(rule.name, matches.length(), iter)
         all_matches.push((rule, matches))
       }
     }
@@ -1083,13 +1101,12 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
     let mut applied = 0
     for pair in all_matches {
       let (rule, matches) = pair
-      let count = egraph.apply_matches(rule, matches)
-      self.did_apply(rule.name, count, iter)
-      applied = applied + count
+      applied = applied + egraph.apply_matches(rule, matches)
     }
     // === Rebuild Phase ===
     egraph.rebuild()
     // === Termination Check ===
+    // NOTE: returns Saturated even if some rules were skipped due to backoff.
     if applied == 0 {
       return Saturated
     }
