@@ -118,7 +118,8 @@ fn apply_subst(
         eg.union(subst_class, eg.add(LLet(y, new_val, body_id))) |> ignore
       }
     // else: genuine capture (y ∈ FV(v) and x ∈ FV(body)): leave LSubst unreduced
-    _ => ()
+    // LSubst is re-dispatched by modify once its inner e-class reduces — skip here.
+    LSubst(_, _, _) => ()
   }
 }
 
