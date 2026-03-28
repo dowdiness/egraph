@@ -27,11 +27,88 @@ fn fv_union(
 }
 
 ///|
+/// Union two e-classes and overwrite the winner's analysis data with `exact`.
+fn union_with_exact_data(
+  eg : AnalyzedEGraph[LambdaLang, EvalState],
+  a : Id,
+  b : Id,
+  exact : EvalState,
+) -> Unit {
+  let winner = eg.union(a, b)
+  eg.data[eg.find(winner)] = exact
+}
+
+///|
+/// Reduce `LSubst(x, v_id, e_node)` by dispatching on the structure of `e_node`.
+/// Unions `subst_class` with the reduced form when a rule applies.
+fn apply_subst(
+  eg : AnalyzedEGraph[LambdaLang, EvalState],
+  subst_class : Id,
+  x : String,
+  v_id : Id,
+  e_node : LambdaLang,
+) -> Unit {
+  match e_node {
+    LVar(y) =>
+      if x == y {
+        union_with_exact_data(eg, subst_class, v_id, eg.get_data(v_id))
+      } else {
+        let y_id = eg.add(LVar(y))
+        union_with_exact_data(eg, subst_class, y_id, eg.get_data(y_id))
+      }
+    LNum(n) => {
+      let num_id = eg.add(LNum(n))
+      union_with_exact_data(eg, subst_class, num_id, eg.get_data(num_id))
+    }
+    LBool(b) => {
+      let bool_id = eg.add(LBool(b))
+      union_with_exact_data(eg, subst_class, bool_id, eg.get_data(bool_id))
+    }
+    LAdd(a, b) => {
+      let sa = eg.add(LSubst(x, v_id, a))
+      let sb = eg.add(LSubst(x, v_id, b))
+      let add_id = eg.add(LAdd(sa, sb))
+      union_with_exact_data(eg, subst_class, add_id, eg.get_data(add_id))
+    }
+    LMinus(a, b) => {
+      let sa = eg.add(LSubst(x, v_id, a))
+      let sb = eg.add(LSubst(x, v_id, b))
+      let minus_id = eg.add(LMinus(sa, sb))
+      union_with_exact_data(eg, subst_class, minus_id, eg.get_data(minus_id))
+    }
+    LMul(a, b) => {
+      let sa = eg.add(LSubst(x, v_id, a))
+      let sb = eg.add(LSubst(x, v_id, b))
+      let mul_id = eg.add(LMul(sa, sb))
+      union_with_exact_data(eg, subst_class, mul_id, eg.get_data(mul_id))
+    }
+    LApp(f, a) => {
+      let sf = eg.add(LSubst(x, v_id, f))
+      let sa = eg.add(LSubst(x, v_id, a))
+      let app_id = eg.add(LApp(sf, sa))
+      union_with_exact_data(eg, subst_class, app_id, eg.get_data(app_id))
+    }
+    LIsZero(inner) => {
+      let subst_inner = eg.add(LSubst(x, v_id, inner))
+      let iszero_id = eg.add(LIsZero(subst_inner))
+      union_with_exact_data(eg, subst_class, iszero_id, eg.get_data(iszero_id))
+    }
+    LIf(c, t, fb) => {
+      let sc = eg.add(LSubst(x, v_id, c))
+      let st = eg.add(LSubst(x, v_id, t))
+      let sf = eg.add(LSubst(x, v_id, fb))
+      let if_id = eg.add(LIf(sc, st, sf))
+      union_with_exact_data(eg, subst_class, if_id, eg.get_data(if_id))
+    }
+    _ => ()
+  }
+}
+
+///|
 /// Combined analysis: free-variable tracking + constant folding.
 ///
 /// `make` computes EvalState bottom-up from child data.
 /// `merge` unions FV sets and preserves agreeing constant values.
-/// `modify` is a no-op placeholder until Task 4.
 fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
   {
     make: fn(node, get_data) {
@@ -97,20 +174,29 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
           fv_union(fv, get_data(a).fv)
         }
         LLam(x, body) => {
-          fv_union(fv, get_data(body).fv)
-          fv.remove(x)
+          for y in get_data(body).fv {
+            let name = y.to_string()
+            if name != x {
+              fv.add(name)
+            }
+          }
         }
         LLet(x, v, body) => {
           fv_union(fv, get_data(v).fv)
           for y in get_data(body).fv {
-            if y != x {
-              fv.add(y)
+            let name = y.to_string()
+            if name != x {
+              fv.add(name)
             }
           }
         }
         LSubst(x, v, e) => {
-          fv_union(fv, get_data(e).fv)
-          fv.remove(x)
+          for y in get_data(e).fv {
+            let name = y.to_string()
+            if name != x {
+              fv.add(name)
+            }
+          }
           fv_union(fv, get_data(v).fv)
         }
       }
@@ -131,13 +217,83 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
       }
       { fv, val }
     },
-    modify: fn(_eg, _id) { () },
+    modify: fn(eg, id) {
+      match eg.get_data(id).val {
+        Some(VInt(n)) => {
+          let num_id = eg.add(LNum(n))
+          union_with_exact_data(eg, id, num_id, eg.get_data(num_id))
+        }
+        Some(VBool(b)) => {
+          let bool_id = eg.add(LBool(b))
+          union_with_exact_data(eg, id, bool_id, eg.get_data(bool_id))
+        }
+        None => ()
+      }
+      let class_id = eg.find(id)
+      match eg.egraph.classes.get(class_id) {
+        None => ()
+        Some(class) => {
+          for node in class.nodes {
+            match node {
+              LApp(lam_id, arg_id) => {
+                let lam_canonical = eg.find(lam_id)
+                match eg.egraph.classes.get(lam_canonical) {
+                  None => ()
+                  Some(lam_class) => {
+                    for lam_node in lam_class.nodes {
+                      match lam_node {
+                        LLam(x, body_id) => {
+                          let subst_id = eg.add(LSubst(x, arg_id, body_id))
+                          union_with_exact_data(
+                            eg,
+                            class_id,
+                            subst_id,
+                            eg.get_data(subst_id),
+                          )
+                        }
+                        _ => ()
+                      }
+                    }
+                  }
+                }
+              }
+              LSubst(x, v_id, e_id) => {
+                let e_canonical = eg.find(e_id)
+                match eg.egraph.classes.get(e_canonical) {
+                  None => ()
+                  Some(e_class) => {
+                    for e_node in e_class.nodes {
+                      apply_subst(eg, class_id, x, v_id, e_node)
+                    }
+                  }
+                }
+              }
+              LLet(x, v_id, body_id) => {
+                let subst_id = eg.add(LSubst(x, v_id, body_id))
+                union_with_exact_data(eg, class_id, subst_id, eg.get_data(subst_id))
+              }
+              LIf(cond_id, then_id, else_id) => {
+                match eg.get_data(eg.find(cond_id)).val {
+                  Some(VBool(true)) =>
+                    union_with_exact_data(eg, class_id, then_id, eg.get_data(then_id))
+                  Some(VBool(false)) =>
+                    union_with_exact_data(eg, class_id, else_id, eg.get_data(else_id))
+                  _ => ()
+                }
+              }
+              _ => ()
+            }
+          }
+        }
+      }
+    },
   }
 }
 
 ///|
 test "eval: make — FV for new variants" {
   let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let c_id = eg.add(LVar("c"))
   let x_id = eg.add(LVar("x"))
   let y_id = eg.add(LVar("y"))
   let num5 = eg.add(LNum(5))
@@ -148,11 +304,13 @@ test "eval: make — FV for new variants" {
   let minus_xy = eg.add(LMinus(x_id, y_id))
   assert_true(eg.get_data(minus_xy).fv.contains("x"))
   assert_true(eg.get_data(minus_xy).fv.contains("y"))
-  let if_expr = eg.add(LIf(btrue, x_id, y_id))
+  let if_expr = eg.add(LIf(c_id, x_id, y_id))
+  assert_true(eg.get_data(if_expr).fv.contains("c"))
   assert_true(eg.get_data(if_expr).fv.contains("x"))
   assert_true(eg.get_data(if_expr).fv.contains("y"))
-  let subst = eg.add(LSubst("x", num5, x_id))
-  assert_true(eg.get_data(subst).fv.is_empty())
+  let subst = eg.add(LSubst("x", num5, y_id))
+  assert_true(eg.get_data(subst).fv.contains("y"))
+  assert_true(not(eg.get_data(subst).fv.contains("x")))
 }
 
 ///|
@@ -172,4 +330,62 @@ test "eval: make — constant values for new literals" {
   let three = eg.add(LNum(3))
   let minus_53 = eg.add(LMinus(five, three))
   assert_eq(eg.get_data(minus_53).val, Some(VInt(2)))
+}
+
+///|
+test "eval: constant folding — 2 + 3 = 5 after rebuild" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(two, three))
+  eg.rebuild()
+  let five = eg.add(LNum(5))
+  assert_eq(eg.find(sum), eg.find(five))
+}
+
+///|
+test "eval: constant folding — 5 - 3 = 2 after rebuild" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let five = eg.add(LNum(5))
+  let three = eg.add(LNum(3))
+  let diff = eg.add(LMinus(five, three))
+  eg.rebuild()
+  let two = eg.add(LNum(2))
+  assert_eq(eg.find(diff), eg.find(two))
+}
+
+///|
+test "eval: IsZero(0) folds to LBool(true) after rebuild" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let zero = eg.add(LNum(0))
+  let iszero = eg.add(LIsZero(zero))
+  eg.rebuild()
+  let btrue = eg.add(LBool(true))
+  assert_eq(eg.find(iszero), eg.find(btrue))
+}
+
+///|
+test "eval: if IsZero(0) then 1 else 2 = 1 after rebuild" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let zero = eg.add(LNum(0))
+  let iszero = eg.add(LIsZero(zero))
+  let one = eg.add(LNum(1))
+  let two = eg.add(LNum(2))
+  let if_expr = eg.add(LIf(iszero, one, two))
+  eg.rebuild()
+  assert_eq(eg.find(if_expr), eg.find(one))
+}
+
+///|
+test "eval: beta reduction — (λx. x + 1) 5 = 6" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let x = eg.add(LVar("x"))
+  let one = eg.add(LNum(1))
+  let body = eg.add(LAdd(x, one))
+  let lam = eg.add(LLam("x", body))
+  let five = eg.add(LNum(5))
+  let app = eg.add(LApp(lam, five))
+  eg.rebuild()
+  let six = eg.add(LNum(6))
+  assert_eq(eg.find(app), eg.find(six))
 }
