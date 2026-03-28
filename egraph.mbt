@@ -1380,10 +1380,14 @@ fn[L, D] AnalyzedEGraph::recompute_data(
           }
       }
     }
-    // Early-termination check: did any class gain new information?
-    // We cannot use D : Eq, but the semilattice gives us an equivalent test:
-    //   merge(old, new).a_changed == true  iff  new ⊄ old
-    //   (i.e., new carries information the old datum did not have)
+    // Early-termination check: did any class's datum change this pass?
+    // We cannot use D : Eq, but merge gives an equivalent test:
+    //   a_changed || b_changed  iff  old and new differ in the lattice.
+    // a_changed alone would miss strict decreases: e.g. when two conflicting
+    // constants merge, Some(5) becomes None. merge(Some(5), None) = Some(5)
+    // with a_changed=false — the decrease is invisible to a_changed alone,
+    // and a dependent parent would never be recomputed. Both flags false means
+    // merge(old, new) == old == new: the data is unchanged.
     // This check must happen before self.data.clear() — we still need the
     // previous pass's values for comparison.
     let mut any_changed = false
@@ -1391,7 +1395,7 @@ fn[L, D] AnalyzedEGraph::recompute_data(
       match self.data.get(id) {
         Some(old_d) => {
           let (_, did_merge) = (self.analysis.merge)(old_d, new_d)
-          if did_merge.a_changed {
+          if did_merge.a_changed || did_merge.b_changed {
             any_changed = true
           }
         }
