@@ -35,12 +35,19 @@ impl ENode for LambdaLang with arity(self) {
 impl ENode for LambdaLang with child(self, i) {
   match self {
     LAdd(a, b) | LMul(a, b) | LApp(a, b) | LMinus(a, b) =>
-      if i == 0 { a } else { b }
+      if i == 0 {
+        a
+      } else {
+        b
+      }
     LLam(_, body) | LIsZero(body) => body
     LLet(_, value, body) | LSubst(_, value, body) =>
-      if i == 0 { value } else { body }
-    LIf(c, t, fb) =>
-      if i == 0 { c } else if i == 1 { t } else { fb }
+      if i == 0 {
+        value
+      } else {
+        body
+      }
+    LIf(c, t, fb) => if i == 0 { c } else if i == 1 { t } else { fb }
     _ => abort("no children")
   }
 }

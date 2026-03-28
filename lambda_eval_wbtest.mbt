@@ -27,15 +27,18 @@ fn fv_union(
 }
 
 ///|
-/// Union two e-classes and overwrite the winner's analysis data with `exact`.
-fn union_with_exact_data(
-  eg : AnalyzedEGraph[LambdaLang, EvalState],
-  a : Id,
-  b : Id,
-  exact : EvalState,
+/// Copy elements of `src` into `dst`, skipping `exclude`.
+/// Used for binder scopes: FV(λx. body) = FV(body) \ {x}.
+fn fv_add_except(
+  dst : @hashset.HashSet[String],
+  src : @hashset.HashSet[String],
+  exclude : String,
 ) -> Unit {
-  let winner = eg.union(a, b)
-  eg.data[eg.find(winner)] = exact
+  for y in src {
+    if y != exclude {
+      dst.add(y)
+    }
+  }
 }
 
 ///|
@@ -51,75 +54,62 @@ fn apply_subst(
   match e_node {
     LVar(y) =>
       if x == y {
-        union_with_exact_data(eg, subst_class, v_id, eg.get_data(v_id))
+        eg.union(subst_class, v_id) |> ignore
       } else {
-        let y_id = eg.add(LVar(y))
-        union_with_exact_data(eg, subst_class, y_id, eg.get_data(y_id))
+        eg.union(subst_class, eg.add(LVar(y))) |> ignore
       }
-    LNum(n) => {
-      let num_id = eg.add(LNum(n))
-      union_with_exact_data(eg, subst_class, num_id, eg.get_data(num_id))
-    }
-    LBool(b) => {
-      let bool_id = eg.add(LBool(b))
-      union_with_exact_data(eg, subst_class, bool_id, eg.get_data(bool_id))
-    }
+    LNum(n) => eg.union(subst_class, eg.add(LNum(n))) |> ignore
+    LBool(b) => eg.union(subst_class, eg.add(LBool(b))) |> ignore
     LAdd(a, b) => {
       let sa = eg.add(LSubst(x, v_id, a))
       let sb = eg.add(LSubst(x, v_id, b))
-      let add_id = eg.add(LAdd(sa, sb))
-      union_with_exact_data(eg, subst_class, add_id, eg.get_data(add_id))
+      eg.union(subst_class, eg.add(LAdd(sa, sb))) |> ignore
     }
     LMinus(a, b) => {
       let sa = eg.add(LSubst(x, v_id, a))
       let sb = eg.add(LSubst(x, v_id, b))
-      let minus_id = eg.add(LMinus(sa, sb))
-      union_with_exact_data(eg, subst_class, minus_id, eg.get_data(minus_id))
+      eg.union(subst_class, eg.add(LMinus(sa, sb))) |> ignore
     }
     LMul(a, b) => {
       let sa = eg.add(LSubst(x, v_id, a))
       let sb = eg.add(LSubst(x, v_id, b))
-      let mul_id = eg.add(LMul(sa, sb))
-      union_with_exact_data(eg, subst_class, mul_id, eg.get_data(mul_id))
+      eg.union(subst_class, eg.add(LMul(sa, sb))) |> ignore
     }
     LApp(f, a) => {
       let sf = eg.add(LSubst(x, v_id, f))
       let sa = eg.add(LSubst(x, v_id, a))
-      let app_id = eg.add(LApp(sf, sa))
-      union_with_exact_data(eg, subst_class, app_id, eg.get_data(app_id))
+      eg.union(subst_class, eg.add(LApp(sf, sa))) |> ignore
     }
-    LIsZero(inner) => {
-      let subst_inner = eg.add(LSubst(x, v_id, inner))
-      let iszero_id = eg.add(LIsZero(subst_inner))
-      union_with_exact_data(eg, subst_class, iszero_id, eg.get_data(iszero_id))
-    }
+    LIsZero(inner) =>
+      eg.union(subst_class, eg.add(LIsZero(eg.add(LSubst(x, v_id, inner)))))
+      |> ignore
     LIf(c, t, fb) => {
       let sc = eg.add(LSubst(x, v_id, c))
       let st = eg.add(LSubst(x, v_id, t))
       let sf = eg.add(LSubst(x, v_id, fb))
-      let if_id = eg.add(LIf(sc, st, sf))
-      union_with_exact_data(eg, subst_class, if_id, eg.get_data(if_id))
+      eg.union(subst_class, eg.add(LIf(sc, st, sf))) |> ignore
     }
     LLam(y, body_id) =>
       if x == y {
-        let lam_id = eg.add(LLam(y, body_id))
-        union_with_exact_data(eg, subst_class, lam_id, eg.get_data(lam_id))
+        // x is shadowed — substitution does not enter the body
+        eg.union(subst_class, eg.add(LLam(y, body_id))) |> ignore
       } else if not(eg.get_data(v_id).fv.contains(y)) {
+        // Safe: y ∉ FV(v), no capture possible
         let new_body = eg.add(LSubst(x, v_id, body_id))
-        let lam_id = eg.add(LLam(y, new_body))
-        union_with_exact_data(eg, subst_class, lam_id, eg.get_data(lam_id))
+        eg.union(subst_class, eg.add(LLam(y, new_body))) |> ignore
       }
+    // Capture case (y ∈ FV(v)): leave LSubst unreduced
     LLet(y, val_id, body_id) =>
       if x == y {
+        // x is shadowed in body — substitute only in the binding value
         let new_val = eg.add(LSubst(x, v_id, val_id))
-        let let_id = eg.add(LLet(y, new_val, body_id))
-        union_with_exact_data(eg, subst_class, let_id, eg.get_data(let_id))
+        eg.union(subst_class, eg.add(LLet(y, new_val, body_id))) |> ignore
       } else if not(eg.get_data(v_id).fv.contains(y)) {
         let new_val = eg.add(LSubst(x, v_id, val_id))
         let new_body = eg.add(LSubst(x, v_id, body_id))
-        let let_id = eg.add(LLet(y, new_val, new_body))
-        union_with_exact_data(eg, subst_class, let_id, eg.get_data(let_id))
+        eg.union(subst_class, eg.add(LLet(y, new_val, new_body))) |> ignore
       }
+    // Capture case: leave LSubst unreduced
     _ => ()
   }
 }
@@ -193,29 +183,13 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
           fv_union(fv, get_data(f).fv)
           fv_union(fv, get_data(a).fv)
         }
-        LLam(x, body) =>
-          for y in get_data(body).fv {
-            let name = y.to_string()
-            if name != x {
-              fv.add(name)
-            }
-          }
+        LLam(x, body) => fv_add_except(fv, get_data(body).fv, x)
         LLet(x, v, body) => {
           fv_union(fv, get_data(v).fv)
-          for y in get_data(body).fv {
-            let name = y.to_string()
-            if name != x {
-              fv.add(name)
-            }
-          }
+          fv_add_except(fv, get_data(body).fv, x)
         }
         LSubst(x, v, e) => {
-          for y in get_data(e).fv {
-            let name = y.to_string()
-            if name != x {
-              fv.add(name)
-            }
-          }
+          fv_add_except(fv, get_data(e).fv, x)
           fv_union(fv, get_data(v).fv)
         }
       }
@@ -223,12 +197,8 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
     },
     merge: fn(a, b) {
       let fv : @hashset.HashSet[String] = @hashset.new()
-      for x in a.fv {
-        fv.add(x)
-      }
-      for x in b.fv {
-        fv.add(x)
-      }
+      fv_union(fv, a.fv)
+      fv_union(fv, b.fv)
       let val = match (a.val, b.val) {
         (Some(v1), Some(v2)) => if v1 == v2 { Some(v1) } else { None }
         (Some(v), None) | (None, Some(v)) => Some(v)
@@ -238,14 +208,8 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
     },
     modify: fn(eg, id) {
       match eg.get_data(id).val {
-        Some(VInt(n)) => {
-          let num_id = eg.add(LNum(n))
-          union_with_exact_data(eg, id, num_id, eg.get_data(num_id))
-        }
-        Some(VBool(b)) => {
-          let bool_id = eg.add(LBool(b))
-          union_with_exact_data(eg, id, bool_id, eg.get_data(bool_id))
-        }
+        Some(VInt(n)) => eg.union(id, eg.add(LNum(n))) |> ignore
+        Some(VBool(b)) => eg.union(id, eg.add(LBool(b))) |> ignore
         None => ()
       }
       let class_id = eg.find(id)
@@ -261,15 +225,9 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
                   Some(lam_class) =>
                     for lam_node in lam_class.nodes {
                       match lam_node {
-                        LLam(x, body_id) => {
-                          let subst_id = eg.add(LSubst(x, arg_id, body_id))
-                          union_with_exact_data(
-                            eg,
-                            class_id,
-                            subst_id,
-                            eg.get_data(subst_id),
-                          )
-                        }
+                        LLam(x, body_id) =>
+                          eg.union(class_id, eg.add(LSubst(x, arg_id, body_id)))
+                          |> ignore
                         _ => ()
                       }
                     }
@@ -285,31 +243,12 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
                     }
                 }
               }
-              LLet(x, v_id, body_id) => {
-                let subst_id = eg.add(LSubst(x, v_id, body_id))
-                union_with_exact_data(
-                  eg,
-                  class_id,
-                  subst_id,
-                  eg.get_data(subst_id),
-                )
-              }
+              LLet(x, v_id, body_id) =>
+                eg.union(class_id, eg.add(LSubst(x, v_id, body_id))) |> ignore
               LIf(cond_id, then_id, else_id) =>
                 match eg.get_data(eg.find(cond_id)).val {
-                  Some(VBool(true)) =>
-                    union_with_exact_data(
-                      eg,
-                      class_id,
-                      then_id,
-                      eg.get_data(then_id),
-                    )
-                  Some(VBool(false)) =>
-                    union_with_exact_data(
-                      eg,
-                      class_id,
-                      else_id,
-                      eg.get_data(else_id),
-                    )
+                  Some(VBool(true)) => eg.union(class_id, then_id) |> ignore
+                  Some(VBool(false)) => eg.union(class_id, else_id) |> ignore
                   _ => ()
                 }
               _ => ()
