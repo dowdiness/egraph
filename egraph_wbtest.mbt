@@ -714,3 +714,54 @@ test "many unions converge to single root" {
     assert_eq(uf.find(ids[i]), root)
   }
 }
+
+///|
+test "DidMerge: helpers produce correct flags" {
+  assert_eq(DidMerge::both(), { a_changed: true, b_changed: true })
+  assert_eq(DidMerge::a_only(), { a_changed: true, b_changed: false })
+  assert_eq(DidMerge::b_only(), { a_changed: false, b_changed: true })
+  assert_eq(DidMerge::neither(), { a_changed: false, b_changed: false })
+  assert_true(DidMerge::both().changed())
+  assert_true(DidMerge::a_only().changed())
+  assert_true(DidMerge::b_only().changed())
+  assert_false(DidMerge::neither().changed())
+}
+
+///|
+test "DidMerge: Int? merge flags — stable, one-sided, conflict" {
+  fn merge(a : Int?, b : Int?) -> (Int?, DidMerge) {
+    let result = match (a, b) {
+      (Some(x), Some(y)) => if x == y { Some(x) } else { None }
+      (Some(x), None) | (None, Some(x)) => Some(x)
+      _ => None
+    }
+    (result, { a_changed: a != result, b_changed: b != result })
+  }
+
+  // Both None — neither changes
+  let (r1, dm1) = merge(None, None)
+  assert_eq(r1, None)
+  assert_eq(dm1, DidMerge::neither())
+
+  // Same value — neither changes
+  let (r2, dm2) = merge(Some(5), Some(5))
+  assert_eq(r2, Some(5))
+  assert_eq(dm2, DidMerge::neither())
+
+  // One-sided: b gains information
+  let (r3, dm3) = merge(Some(3), None)
+  assert_eq(r3, Some(3))
+  assert_eq(dm3.a_changed, false)
+  assert_eq(dm3.b_changed, true)
+
+  // One-sided: a gains information
+  let (r4, dm4) = merge(None, Some(7))
+  assert_eq(r4, Some(7))
+  assert_eq(dm4.a_changed, true)
+  assert_eq(dm4.b_changed, false)
+
+  // Conflict — both sides lose their value
+  let (r5, dm5) = merge(Some(1), Some(2))
+  assert_eq(r5, None)
+  assert_eq(dm5, DidMerge::both())
+}
