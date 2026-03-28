@@ -1,4 +1,76 @@
 ///|
+test "term_to_egraph: Int(42) produces a graph with 1 node" {
+  let (eg, root) = term_to_egraph(@ast.Term::Int(42))
+  assert_eq(eg.find(root), root)
+  assert_eq(eg.size(), 1)
+}
+
+///|
+test "term_to_egraph: Lam builds graph with 2 nodes" {
+  let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
+  let (eg, root) = term_to_egraph(term)
+  // Var("x") node + Lam("x", var_id) node
+  assert_eq(eg.size(), 2)
+  assert_eq(eg.find(root), root)
+}
+
+///|
+/// Convert a lambda calculus Term to an EGraph.
+/// Returns the graph and the root e-class Id.
+fn term_to_egraph(term : @ast.Term) -> (EGraph[LambdaLang], Id) {
+  let eg : EGraph[LambdaLang] = EGraph::new()
+  let root = term_add(eg, term)
+  (eg, root)
+}
+
+///|
+/// Recursively add an @ast.Term to an existing EGraph.
+fn term_add(eg : EGraph[LambdaLang], term : @ast.Term) -> Id {
+  match term {
+    @ast.Term::Int(n) => eg.add(LNum(n))
+    @ast.Term::Var(x) => eg.add(LVar(x))
+    @ast.Term::Unbound(x) => eg.add(LVar(x))
+    @ast.Term::Lam(x, body) => {
+      let b = term_add(eg, body)
+      eg.add(LLam(x, b))
+    }
+    @ast.Term::App(f, a) => {
+      let fi = term_add(eg, f)
+      let ai = term_add(eg, a)
+      eg.add(LApp(fi, ai))
+    }
+    @ast.Term::Bop(@ast.Bop::Plus, l, r) => {
+      let li = term_add(eg, l)
+      let ri = term_add(eg, r)
+      eg.add(LAdd(li, ri))
+    }
+    @ast.Term::Bop(@ast.Bop::Minus, l, r) => {
+      let li = term_add(eg, l)
+      let ri = term_add(eg, r)
+      eg.add(LMinus(li, ri))
+    }
+    @ast.Term::If(c, t, e) => {
+      let ci = term_add(eg, c)
+      let ti = term_add(eg, t)
+      let ei = term_add(eg, e)
+      eg.add(LIf(ci, ti, ei))
+    }
+    @ast.Term::Module(defs, body) => {
+      let body_id = term_add(eg, body)
+      let mut result = body_id
+      for i = defs.length() - 1; i >= 0; i = i - 1 {
+        let (name, val) = defs[i]
+        let val_id = term_add(eg, val)
+        result = eg.add(LLet(name, val_id, result))
+      }
+      result
+    }
+    @ast.Term::Unit => eg.add(LNum(0))
+    @ast.Term::Error(_) => eg.add(LNum(0))
+  }
+}
+
+///|
 /// Values the constant-folding lattice can represent.
 enum ValLit {
   VInt(Int)
