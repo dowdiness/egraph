@@ -349,18 +349,13 @@ This produces `None` on conflict, making merge commutative: `merge(Some(1), Some
 
 ## 23. `recompute_data` Relaxation Pass Count is O(n)
 
-**Concern**: `recompute_data` runs `pass_count = class_ids.length()` relaxation passes to propagate new child facts through parent nodes. For a chain of depth `d`, only `d` passes are needed. The current approach runs `n` passes (number of e-classes) even if convergence happens in 2.
+**Status: Resolved** — early termination implemented (PR #6).
 
-**Current choice**: Use `n` passes — correct, simple, guarantees convergence for any e-graph topology.
+**Concern**: `recompute_data` ran `pass_count = class_ids.length()` relaxation passes unconditionally, even when data stabilised after 1–2 passes.
 
-**Alternatives**:
-- Track whether any data changed during a pass and break early (fixed-point detection)
-- Use a worklist/priority-queue ordered by topological depth
-- Compute topological order once and do a single bottom-up pass (only works for acyclic e-graphs)
+**Resolution**: After each pass, compare `next_data[id]` against `self.data[id]` using `merge(old, new)`. Both `a_changed` and `b_changed` must be checked (not just `a_changed`) — using only `a_changed` misses strict decreases (e.g. `Some(x) → None` when conflicting constants merge). `a_changed || b_changed` is the sound test: both false iff `merge(old, new) == old == new`.
 
-**Why deferred**: For research-scale e-graphs, the O(n^2) cost is acceptable. Early termination would add a comparison check per e-class per pass, requiring `D : Eq` — an additional trait bound not currently needed.
-
-**Revisit when**: Benchmarks show `rebuild` as a bottleneck, or when e-graphs exceed ~1k classes.
+**Benchmark**: 1000-class stable graph dropped from ~124 ms to ~340 µs (~370× speedup).
 
 ---
 
@@ -405,4 +400,33 @@ This produces `None` on conflict, making merge commutative: `merge(Some(1), Some
 
 **Why deferred**: Tied to the relaxation approach (concern #23). Fixing the O(n) pass count via early termination would proportionally reduce the map-swap cost, making it negligible. Solving the pass count is higher priority.
 
-**Revisit when**: Concern #23 is addressed (early termination), and map allocation remains a measurable cost afterward.
+**Revisit when**: Concern #23 is now resolved. Re-benchmark map allocation cost — if it still shows in profiles, consider the two-map swap approach.
+
+---
+
+## 27. Analysis `merge` Should Be a Join-Semilattice
+
+**Concern**: The `Analysis.merge` contract requires commutative, associative, idempotent merge and accurate `DidMerge` flags. The early-termination fix in `recompute_data` (concern #23) also relies on `a_changed || b_changed` correctly detecting all data changes, including decreases. This is correct as long as `DidMerge` is accurate — but the deeper issue is that `merge` is not required to be a *join* (monotone increasing).
+
+Without the join property, three problems arise:
+1. **Non-unique fixed point**: Tarski's theorem guarantees a unique least fixed point only for monotone functions over a lattice. A non-monotone `merge` may converge to different fixed points depending on class iteration order.
+2. **Silent stale data if the pass bound is exhausted**: If a non-monotone analysis oscillates for more than `n` passes (possible with cyclic e-node dependencies), `recompute_data` exits mid-oscillation with `any_changed = true` — but the hard loop bound prevents further passes.
+3. **`modify` firing on unconverged data**: If `recompute_data` exits via the pass limit rather than the `any_changed = false` break, `modify` hooks run on partially-propagated analysis data.
+
+**Current choice**: Accept non-join merge — the existing constant-folding analysis uses `merge(Some(x), Some(y)) = None when x≠y`, which is a *meet* (conflict-dropping), not a join. It is safe in practice because `None` is a stable absorbing element: once a class reaches `None`, it stays there, so no oscillation occurs.
+
+**Correct fix**: Replace the two-state `Int?` lattice with a three-state flat lattice:
+
+```moonbit
+enum ConstData {
+  Unknown    // ⊥ — no information
+  Known(Int) // a specific constant
+  Conflict   // ⊤ — multiple conflicting values
+}
+```
+
+`merge(Known(x), Known(y)) = Conflict` when `x ≠ y` — `Conflict` is *above* both in the information order, making `merge` a proper join. Data is then monotone increasing, the fixed point is unique, and `recompute_data`'s change detection simplifies back to `a_changed` only (joins never decrease the first argument, so `b_changed = true` is impossible).
+
+**Why deferred**: The `Int?` analyses work correctly in practice due to the absorbing-element property of `None`. Migrating to a 3-state type requires updating all test analyses and the documentation examples. Not a correctness risk for current code; a latent risk for future analyses that use non-absorbing conflict-dropping.
+
+**Revisit when**: A new analysis is added whose `merge` is non-monotone and does not have an absorbing bottom element, OR when the `Analysis` API is stabilised for external users (the contract should be correct before it becomes public).
