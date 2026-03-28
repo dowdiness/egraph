@@ -765,3 +765,79 @@ test "DidMerge: Int? merge flags — stable, one-sided, conflict" {
   assert_eq(r5, None)
   assert_eq(dm5, DidMerge::both())
 }
+
+// ── BackoffScheduler tests ──
+
+///|
+test "BackoffScheduler: same result as Runner for well-behaved rules" {
+  // Build e-graph with x + 0 and 0 + x
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let zero = eg.add(Num(0))
+  let sum = eg.add(Add(a, zero))
+  let sum2 = eg.add(Add(zero, a))
+  let rules = [
+    rewrite("add-zero-right", "(Add ?x (Num:0))", "?x"),
+    rewrite("add-zero-left", "(Add (Num:0) ?x)", "?x"),
+    rewrite("mul-one-right", "(Mul ?x (Num:1))", "?x"),
+    rewrite("mul-one-left", "(Mul (Num:1) ?x)", "?x"),
+  ]
+  let sched = BackoffScheduler::new()
+  let reason = sched.run(eg, rules)
+  // Well-behaved rules should reach saturation
+  assert_eq(reason, Saturated)
+  // After saturation, sum and sum2 are equivalent to a
+  assert_eq(eg.find(sum), eg.find(a))
+  assert_eq(eg.find(sum2), eg.find(a))
+  // Extraction gives cheapest result
+  let (cost, expr) = eg.extract(sum, ast_size())
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), Num(1))
+}
+
+///|
+test "BackoffScheduler: ban tracking" {
+  let sched = BackoffScheduler::new(match_limit=2)
+  // Not banned initially
+  assert_true(sched.can_apply("r", 0))
+  // First offense at iter 0: ban_length=1, banned_until=0+1+1=2
+  // Skips exactly 1 future iteration (iter 1).
+  sched.did_search("r", 5, 0)
+  assert_false(sched.can_apply("r", 1)) // iter=1 >= 2 is false — banned
+  assert_true(sched.can_apply("r", 2)) // iter=2 >= 2 is true  — allowed again
+  // Second offense at iter 2: ban_length doubles to 2, banned_until=2+2+1=5
+  // Skips exactly 2 future iterations (iters 3 and 4).
+  sched.did_search("r", 5, 2)
+  assert_false(sched.can_apply("r", 3)) // 3 >= 5 is false — banned
+  assert_false(sched.can_apply("r", 4)) // 4 >= 5 is false — banned
+  assert_true(sched.can_apply("r", 5)) // 5 >= 5 is true  — allowed again
+  // Third offense at iter 5: ban_length doubles to 4, banned_until=5+4+1=10
+  // Skips exactly 4 future iterations (iters 6-9).
+  sched.did_search("r", 5, 5)
+  assert_false(sched.can_apply("r", 9))
+  assert_true(sched.can_apply("r", 10))
+}
+
+///|
+test "BackoffScheduler: caps explosive commutativity rule" {
+  // Build an e-graph with several Add nodes to give commutativity room to fire
+  let eg : EGraph[TestLang] = EGraph::new()
+  let a = eg.add(Num(1))
+  let b = eg.add(Num(2))
+  let c = eg.add(Num(3))
+  let _ = eg.add(Add(a, b))
+  let _ = eg.add(Add(b, c))
+  let _ = eg.add(Add(a, c))
+  let size_before = eg.size()
+  // Commutativity alone on multiple nodes without backoff would grow fast
+  let rules = [rewrite("add-comm", "(Add ?x ?y)", "(Add ?y ?x)")]
+  // Use a low match_limit so commutativity is quickly throttled
+  let sched = BackoffScheduler::new(match_limit=5)
+  let reason = sched.run(eg, rules, iter_limit=30, node_limit=10_000)
+  // Should reach saturation (not IterLimit or NodeLimit)
+  assert_eq(reason, Saturated)
+  // E-graph size should remain manageable (not blow up exponentially)
+  let size_after = eg.size()
+  assert_true(size_after >= size_before)
+  assert_true(size_after < 1000)
+}
