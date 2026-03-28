@@ -983,6 +983,123 @@ fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
   IterLimit
 }
 
+// ── BackoffScheduler (Exponential-Backoff Rule Scheduler) ──
+//
+// Extends the equality saturation loop with per-rule match budgets.
+// Explosive rules (commutativity, associativity) can match an exponential
+// number of times each iteration, quickly bloating the e-graph.
+//
+// BackoffScheduler mitigates this by:
+//   1. Counting matches produced by each rule per iteration.
+//   2. Banning any rule that exceeds `match_limit` matches.
+//   3. Doubling the ban length each time the same rule is banned again.
+//
+// This gives explosive rules exponentially less budget over time while
+// leaving well-behaved rules completely unaffected.
+
+///|
+/// Per-rule state tracked by the scheduler.
+struct RuleStats {
+  mut ban_length : Int // Current ban duration; doubles each time rule is banned
+  mut banned_until : Int // First iteration when rule is allowed again; 0 = not banned
+}
+
+///|
+/// Exponential-backoff rule scheduler.
+///
+/// Tracks per-rule match counts. When a rule matches more than `match_limit`
+/// times in a single iteration, it is banned for `ban_length` iterations and
+/// `ban_length` doubles. This prevents explosive rules (commutativity,
+/// associativity) from dominating the saturation budget.
+///
+/// Default `match_limit` is 1000.
+pub struct BackoffScheduler {
+  match_limit : Int
+  stats : Map[String, RuleStats]
+}
+
+///|
+fn BackoffScheduler::new(match_limit? : Int = 1000) -> BackoffScheduler {
+  { match_limit, stats: {} }
+}
+
+///|
+// Returns false if the rule is currently banned for this iteration.
+fn BackoffScheduler::can_apply(
+  self : BackoffScheduler,
+  name : String,
+  iter : Int,
+) -> Bool {
+  match self.stats.get(name) {
+    Some(s) => iter >= s.banned_until
+    None => true
+  }
+}
+
+///|
+// Called after applying a rule. Bans it if match_count exceeded the limit.
+fn BackoffScheduler::did_apply(
+  self : BackoffScheduler,
+  name : String,
+  match_count : Int,
+  iter : Int,
+) -> Unit {
+  if match_count > self.match_limit {
+    let s = match self.stats.get(name) {
+      Some(s) => s
+      None => {
+        let fresh = { ban_length: 1, banned_until: 0 }
+        self.stats[name] = fresh
+        fresh
+      }
+    }
+    s.banned_until = iter + s.ban_length
+    s.ban_length = s.ban_length * 2
+  }
+}
+
+///|
+/// Run equality saturation with exponential-backoff scheduling.
+///
+/// Rules that match more than `match_limit` times in one iteration are
+/// banned for an exponentially growing number of subsequent iterations.
+fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
+  self : BackoffScheduler,
+  egraph : EGraph[L],
+  rules : Array[Rewrite],
+  iter_limit? : Int = 30,
+  node_limit? : Int = 10_000,
+) -> StopReason {
+  for iter = 0; iter < iter_limit; iter = iter + 1 {
+    // === Read Phase ===
+    let all_matches : Array[(Rewrite, Array[(Id, Subst)])] = []
+    for rule in rules {
+      if self.can_apply(rule.name, iter) {
+        let matches = egraph.search(rule.lhs)
+        all_matches.push((rule, matches))
+      }
+    }
+    // === Write Phase ===
+    let mut applied = 0
+    for pair in all_matches {
+      let (rule, matches) = pair
+      let count = egraph.apply_matches(rule, matches)
+      self.did_apply(rule.name, count, iter)
+      applied = applied + count
+    }
+    // === Rebuild Phase ===
+    egraph.rebuild()
+    // === Termination Check ===
+    if applied == 0 {
+      return Saturated
+    }
+    if egraph.size() > node_limit {
+      return NodeLimit
+    }
+  }
+  IterLimit
+}
+
 // ── E-Class Analysis ──
 //
 // E-class analysis associates domain-specific data with each e-class.
