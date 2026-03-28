@@ -21,13 +21,13 @@ The library represents analysis as a record of three callbacks:
 ```moonbit
 priv struct Analysis[L, D] {
   make : (L, (Id) -> D) -> D
-  merge : (D, D) -> D
+  merge : (D, D) -> (D, DidMerge)
   modify : (AnalyzedEGraph[L, D], Id) -> Unit
 }
 ```
 
 - **`make(node, get_data)`** — Compute the analysis datum for a single e-node. The `get_data` function looks up the data of child e-classes.
-- **`merge(a, b)`** — Combine data when two e-classes are unioned. Must be commutative and associative (it forms a join-semilattice).
+- **`merge(a, b)`** — Combine data when two e-classes are unioned. Returns the merged datum and a `DidMerge` tracking which side changed. Must be commutative and associative (it forms a join-semilattice). `rebuild` folds `merge` over arbitrarily many nodes, so both laws are required.
 - **`modify(egraph, id)`** — Post-merge hook. May inspect the data for e-class `id` and react by calling `egraph.add()` or `egraph.union()`.
 
 The analysis is stored in `AnalyzedEGraph[L, D]`, which wraps a plain `EGraph[L]` and maintains a parallel `data : Map[Id, D]`.

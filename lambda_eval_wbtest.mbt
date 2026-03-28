@@ -222,7 +222,12 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
         (Some(v), None) | (None, Some(v)) => Some(v)
         _ => None
       }
-      { fv, val }
+      let result = { fv, val }
+      // `fv` is the intersection of `a.fv` and `b.fv`, so `fv ⊆ a.fv` and
+      // `fv ⊆ b.fv`. Equal length on either side therefore implies set equality.
+      let a_changed = a.fv.length() != fv.length() || a.val != val
+      let b_changed = b.fv.length() != fv.length() || b.val != val
+      (result, { a_changed, b_changed })
     },
     modify: fn(eg, id) {
       match eg.get_data(id).val {

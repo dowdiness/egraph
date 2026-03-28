@@ -316,18 +316,17 @@ Deferred decisions and trade-offs encountered during implementation. Each entry 
 
 ## 21. Analysis `merge` Commutativity Not Enforced
 
-**Concern**: `Analysis.merge` is documented as "Must be commutative" but this is not enforced. The constant-folding test implementations use `match (a, b) { (Some(x), _) => Some(x); ... }` which always picks `a` when both are `Some` — not truly commutative when `x != y`.
+**Status: Resolved.**
 
-**Current choice**: Documentation-only contract. For constant folding, merged classes always have equal constant values (if both are `Some`), so the non-commutative path is unreachable in correct usage.
+**Concern**: `Analysis.merge` is documented as "Must be commutative" but this was not enforced. The constant-folding test implementations used `match (a, b) { (Some(x), _) => Some(x); ... }` which always picked `a` when both are `Some` — not truly commutative when `x != y`.
 
-**Alternatives**:
-- Add a debug assertion: `if x != y { abort("merge conflict") }`
-- Use `min`/`max` for a truly commutative merge
-- Add a `verify_merge` debug hook that checks `merge(a,b) == merge(b,a)`
+**Resolution** (PR #3 — `feat/did-merge`): The merge closure in `egraph_wbtest.mbt` and `lambda_opt_wbtest.mbt` was changed to:
 
-**Why deferred**: The contract is correct for all current analyses. Enforcing commutativity would add runtime cost or require a testing framework for analysis properties.
+```moonbit
+(Some(x), Some(y)) => if x == y { Some(x) } else { None }
+```
 
-**Revisit when**: Users define custom analyses where merge order matters, or when adding property-based testing for analysis correctness.
+This produces `None` on conflict, making merge commutative: `merge(Some(1), Some(2)) == merge(Some(2), Some(1)) == None`. The `None`-on-conflict rule is safe because the e-graph only merges truly equivalent e-classes — two `Some` values with different constants in the same e-class would indicate a soundness bug, not a normal merge scenario. Additionally, the `Analysis.merge` signature was changed from `(D, D) -> D` to `(D, D) -> (D, DidMerge)`, and the contract comment was extended to require associativity as well as commutativity (both are needed because `rebuild` folds `merge` over arbitrarily many nodes).
 
 ---
 

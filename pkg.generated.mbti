@@ -12,6 +12,19 @@ import {
 // Types and methods
 type CostFn[L]
 
+pub struct DidMerge {
+  a_changed : Bool
+  b_changed : Bool
+}
+pub fn DidMerge::a_only() -> Self
+pub fn DidMerge::b_only() -> Self
+pub fn DidMerge::both() -> Self
+pub fn DidMerge::changed(Self) -> Bool
+pub fn DidMerge::neither() -> Self
+pub impl Eq for DidMerge
+pub impl Show for DidMerge
+pub impl @debug.Debug for DidMerge
+
 pub(all) struct Id(Int)
 #deprecated
 pub fn Id::inner(Self) -> Int

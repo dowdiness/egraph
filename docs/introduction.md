@@ -403,7 +403,12 @@ let analysis = {
     }
   },
   merge: fn(a, b) {
-    match (a, b) { (Some(x), _) => Some(x); (_, Some(y)) => Some(y); _ => None }
+    let result = match (a, b) {
+      (Some(x), Some(y)) => if x == y { Some(x) } else { None }
+      (Some(x), None) | (None, Some(x)) => Some(x)
+      _ => None
+    }
+    (result, { a_changed: a != result, b_changed: b != result })
   },
   modify: fn(eg, id) {
     match eg.get_data(id) {
