@@ -193,14 +193,13 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
           fv_union(fv, get_data(f).fv)
           fv_union(fv, get_data(a).fv)
         }
-        LLam(x, body) => {
+        LLam(x, body) =>
           for y in get_data(body).fv {
             let name = y.to_string()
             if name != x {
               fv.add(name)
             }
           }
-        }
         LLet(x, v, body) => {
           fv_union(fv, get_data(v).fv)
           for y in get_data(body).fv {
@@ -252,14 +251,14 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
       let class_id = eg.find(id)
       match eg.egraph.classes.get(class_id) {
         None => ()
-        Some(class) => {
+        Some(class) =>
           for node in class.nodes {
             match node {
               LApp(lam_id, arg_id) => {
                 let lam_canonical = eg.find(lam_id)
                 match eg.egraph.classes.get(lam_canonical) {
                   None => ()
-                  Some(lam_class) => {
+                  Some(lam_class) =>
                     for lam_node in lam_class.nodes {
                       match lam_node {
                         LLam(x, body_id) => {
@@ -274,37 +273,48 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
                         _ => ()
                       }
                     }
-                  }
                 }
               }
               LSubst(x, v_id, e_id) => {
                 let e_canonical = eg.find(e_id)
                 match eg.egraph.classes.get(e_canonical) {
                   None => ()
-                  Some(e_class) => {
+                  Some(e_class) =>
                     for e_node in e_class.nodes {
                       apply_subst(eg, class_id, x, v_id, e_node)
                     }
-                  }
                 }
               }
               LLet(x, v_id, body_id) => {
                 let subst_id = eg.add(LSubst(x, v_id, body_id))
-                union_with_exact_data(eg, class_id, subst_id, eg.get_data(subst_id))
+                union_with_exact_data(
+                  eg,
+                  class_id,
+                  subst_id,
+                  eg.get_data(subst_id),
+                )
               }
-              LIf(cond_id, then_id, else_id) => {
+              LIf(cond_id, then_id, else_id) =>
                 match eg.get_data(eg.find(cond_id)).val {
                   Some(VBool(true)) =>
-                    union_with_exact_data(eg, class_id, then_id, eg.get_data(then_id))
+                    union_with_exact_data(
+                      eg,
+                      class_id,
+                      then_id,
+                      eg.get_data(then_id),
+                    )
                   Some(VBool(false)) =>
-                    union_with_exact_data(eg, class_id, else_id, eg.get_data(else_id))
+                    union_with_exact_data(
+                      eg,
+                      class_id,
+                      else_id,
+                      eg.get_data(else_id),
+                    )
                   _ => ()
                 }
-              }
               _ => ()
             }
           }
-        }
       }
     },
   }
@@ -457,4 +467,56 @@ test "eval: (λy. λx. y) x leaves unreduced LSubst in extracted term (capture)"
     }
   }
   assert_true(has_subst)
+}
+
+///|
+test "eval integration: (2 + 3) * (4 - 1) = 15" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let four = eg.add(LNum(4))
+  let one = eg.add(LNum(1))
+  let sum = eg.add(LAdd(two, three))
+  let diff = eg.add(LMinus(four, one))
+  let prod = eg.add(LMul(sum, diff))
+  eg.rebuild()
+  let (cost, expr) = eg.extract(prod, ast_size())
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), LNum(15))
+}
+
+///|
+test "eval integration: if IsZero(1) then 1 else 2 = 2" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let one = eg.add(LNum(1))
+  let two = eg.add(LNum(2))
+  let iszero = eg.add(LIsZero(one))
+  let if_expr = eg.add(LIf(iszero, one, two))
+  eg.rebuild()
+  assert_eq(eg.find(if_expr), eg.find(two))
+}
+
+///|
+test "eval integration: (λx. x * 0) 42 = 0 (beta + constant fold)" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let x = eg.add(LVar("x"))
+  let zero = eg.add(LNum(0))
+  let body = eg.add(LMul(x, zero))
+  let lam = eg.add(LLam("x", body))
+  let n42 = eg.add(LNum(42))
+  let app = eg.add(LApp(lam, n42))
+  eg.rebuild()
+  let (cost, expr) = eg.extract(app, ast_size())
+  assert_eq(cost, 1)
+  assert_eq(expr.root(), LNum(0))
+}
+
+///|
+test "eval integration: variable has no constant value" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let x = eg.add(LVar("x"))
+  assert_eq(eg.get_data(x).val, None)
+  let three = eg.add(LNum(3))
+  let sum = eg.add(LAdd(x, three))
+  assert_eq(eg.get_data(sum).val, None)
 }
