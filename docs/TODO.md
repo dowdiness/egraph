@@ -25,7 +25,7 @@
 
 - [ ] **Explanations / Proof Production**: Produce `Explanation`, `TreeExplanation`, `FlatExplanation` that explain *why* two terms are equivalent — which rewrite rules or congruence steps were used. Essential for debugging and formal verification.
 - [ ] **Multi-pattern rules**: Rules that match multiple patterns simultaneously across different e-classes (e.g., "if A=B AND C=D, then E=F"). egg's `MultiPattern`.
-- [ ] **Rewrite Scheduling**: `BackoffScheduler` (exponential backoff for unproductive rules), `SimpleScheduler`, and a `RewriteScheduler` trait for custom strategies. Currently every rule runs every iteration.
+- [x] **Rewrite Scheduling**: `BackoffScheduler` implemented — exponential backoff caps explosive rules (commutativity etc.) by banning rules that exceed a per-iteration match limit. `SimpleScheduler` and a `RewriteScheduler` trait remain future work.
 - [ ] **LP-based Extraction**: Integer linear programming extraction (`LpExtractor`) for globally optimal results, vs current greedy fixed-point which can get stuck in local optima.
 
 #### Medium Priority
@@ -41,7 +41,7 @@
 
 - [ ] **`Symbol` (interned strings)**: String interning for efficient variable/operator name comparison.
 - [ ] **Analysis merge helpers**: `merge_max`, `merge_min`, `merge_option` utility functions for common analysis merge patterns.
-- [ ] **`DidMerge` tracking**: Fine-grained tracking of whether a union actually changed the e-graph (useful for scheduling and termination). → [plan](plans/2026-03-28-did-merge-impl.md)
+- [x] **`DidMerge` tracking**: `DidMerge` struct returned by `Analysis.merge` — tracks whether either argument's data changed. Lays foundation for skipping redundant `modify` calls on stable e-classes.
 - [ ] **Time limit in Runner**: Requires cross-platform clock support in MoonBit.
 - [ ] **Dynamic rewrite generation**: Custom `Applier` implementations that compute right-hand sides programmatically, beyond pattern-based rewrites.
 - [ ] **Serialization**: Serialize/deserialize e-graphs for persistence and debugging.

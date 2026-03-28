@@ -1140,8 +1140,8 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
 /// Tracks whether merging changed either side of a union.
 /// `a_changed`: the first argument was updated.
 /// `b_changed`: the second argument was updated.
-/// Returned by `Analysis.merge`; will be consumed by `BackoffScheduler`
-/// to skip `modify` on classes whose data is already stable.
+/// Returned by `Analysis.merge` to let callers skip redundant work on
+/// e-classes whose analysis data is already stable.
 pub struct DidMerge {
   a_changed : Bool
   b_changed : Bool
@@ -1169,7 +1169,6 @@ pub fn DidMerge::neither() -> DidMerge {
 
 ///|
 /// True if either argument's analysis data changed.
-/// `BackoffScheduler` uses this to prioritize which classes need re-examination.
 /// Note: a union with unchanged data can still expose new structural work
 /// (e.g. new nodes in the merged class), so this does not capture all e-graph changes.
 pub fn DidMerge::changed(self : DidMerge) -> Bool {
