@@ -1418,14 +1418,11 @@ fn[L, D] AnalyzedEGraph::recompute_data(
         None => any_changed = true
       }
     }
-    // Swap data ↔ scratch in O(1): scratch (just populated) becomes the new
-    // live map; data (previous pass) becomes the new scratch buffer cleared
-    // at the top of the next pass. No allocation, no N-entry copy-back.
+    // Reuse pre-allocated maps: swap pointers instead of allocating a fresh
+    // map and copying N entries back. GC pressure stays flat across passes.
     let tmp = self.data
     self.data = self.scratch
     self.scratch = tmp
-    // Fixed point reached: every class's datum already subsumed scratch.
-    // Remaining passes would produce identical results, so stop early.
     if not(any_changed) {
       break
     }
