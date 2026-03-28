@@ -41,7 +41,7 @@
 
 - [ ] **`Symbol` (interned strings)**: String interning for efficient variable/operator name comparison.
 - [ ] **Analysis merge helpers**: `merge_max`, `merge_min`, `merge_option` utility functions for common analysis merge patterns.
-- [ ] **`DidMerge` tracking**: Fine-grained tracking of whether a union actually changed the e-graph (useful for scheduling and termination).
+- [ ] **`DidMerge` tracking**: Fine-grained tracking of whether a union actually changed the e-graph (useful for scheduling and termination). → [plan](plans/2026-03-28-did-merge-impl.md)
 - [ ] **Time limit in Runner**: Requires cross-platform clock support in MoonBit.
 - [ ] **Dynamic rewrite generation**: Custom `Applier` implementations that compute right-hand sides programmatically, beyond pattern-based rewrites.
 - [ ] **Serialization**: Serialize/deserialize e-graphs for persistence and debugging.
