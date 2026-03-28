@@ -1024,7 +1024,7 @@ fn BackoffScheduler::new(match_limit? : Int = 1000) -> BackoffScheduler {
 }
 
 ///|
-// Returns false if the rule is currently banned for this iteration.
+/// Returns false if the rule is currently banned for this iteration.
 fn BackoffScheduler::can_apply(
   self : BackoffScheduler,
   name : String,
@@ -1037,7 +1037,7 @@ fn BackoffScheduler::can_apply(
 }
 
 ///|
-// Called after applying a rule. Bans it if match_count exceeded the limit.
+/// Called after applying a rule. Bans it if match_count exceeded the limit.
 fn BackoffScheduler::did_apply(
   self : BackoffScheduler,
   name : String,
