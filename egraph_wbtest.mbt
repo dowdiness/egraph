@@ -669,11 +669,14 @@ test "analysis: simple constant folding with TestLang" {
       }
     },
     merge: fn(a, b) {
-      match (a, b) {
+      let result = match (a, b) {
         (Some(x), _) => Some(x)
         (_, Some(y)) => Some(y)
         _ => None
       }
+      let a_changed = a != result
+      let b_changed = b != result
+      (result, { a_changed, b_changed })
     },
     modify: fn(eg, id) {
       match eg.get_data(id) {

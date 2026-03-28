@@ -1003,12 +1003,50 @@ fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
 // core EGraph type (no `EGraph[L]` → `EGraph[L, D]` migration).
 
 ///|
+/// Tracks whether merging changed either side of a union.
+/// `a_changed`: the first argument was updated.
+/// `b_changed`: the second argument was updated.
+/// Used by `rebuild` to skip `modify` when data is already stable.
+pub struct DidMerge {
+  a_changed : Bool
+  b_changed : Bool
+} derive(Eq, Show)
+
+///|
+pub fn DidMerge::both() -> DidMerge {
+  { a_changed: true, b_changed: true }
+}
+
+///|
+pub fn DidMerge::a_only() -> DidMerge {
+  { a_changed: true, b_changed: false }
+}
+
+///|
+pub fn DidMerge::b_only() -> DidMerge {
+  { a_changed: false, b_changed: true }
+}
+
+///|
+pub fn DidMerge::neither() -> DidMerge {
+  { a_changed: false, b_changed: false }
+}
+
+///|
+/// True if either argument changed — i.e. the e-graph needs more work.
+pub fn DidMerge::changed(self : DidMerge) -> Bool {
+  self.a_changed || self.b_changed
+}
+
+///|
 /// Analysis callbacks: compute, merge, and react to per-e-class data.
 priv struct Analysis[L, D] {
   /// Compute data for a single e-node. `get_data` looks up children's data.
   make : (L, (Id) -> D) -> D
-  /// Combine data from two e-classes being merged. Must be commutative.
-  merge : (D, D) -> D
+  /// Combine data from two e-classes being merged.
+  /// Returns the merged data and a `DidMerge` indicating which side changed.
+  /// Must be commutative: `merge(a, b).0 == merge(b, a).0`.
+  merge : (D, D) -> (D, DidMerge)
   /// Post-merge hook: may add nodes or union classes based on analysis data.
   modify : (AnalyzedEGraph[L, D], Id) -> Unit
 }
@@ -1074,7 +1112,7 @@ fn[L, D] AnalyzedEGraph::union(
   // Merge analysis data before union (both roots still valid)
   let data_a = self.data[root_a]
   let data_b = self.data[root_b]
-  let merged_data = (self.analysis.merge)(data_a, data_b)
+  let (merged_data, _did_merge) = (self.analysis.merge)(data_a, data_b)
   // Perform the union in the underlying e-graph
   let winner = self.egraph.union(a, b)
   let loser = if winner == root_a { root_b } else { root_a }
@@ -1128,8 +1166,10 @@ fn[L, D] AnalyzedEGraph::canonicalize_data(self : AnalyzedEGraph[L, D]) -> Unit 
     let canonical = self.find(id)
     if canonical != id {
       match self.data.get(canonical) {
-        Some(existing) =>
-          self.data[canonical] = (self.analysis.merge)(existing, d)
+        Some(existing) => {
+          let (merged, _) = (self.analysis.merge)(existing, d)
+          self.data[canonical] = merged
+        }
         None => self.data[canonical] = d
       }
       stale.push(id)
@@ -1161,7 +1201,10 @@ fn[L, D] AnalyzedEGraph::recompute_data(
           for node in eclass.nodes {
             let d = (self.analysis.make)(node, lookup)
             combined = match combined {
-              Some(acc) => Some((self.analysis.merge)(acc, d))
+              Some(acc) => {
+                let (merged, _) = (self.analysis.merge)(acc, d)
+                Some(merged)
+              }
               None => Some(d)
             }
           }

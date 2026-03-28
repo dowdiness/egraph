@@ -509,11 +509,14 @@ fn constant_fold_analysis() -> Analysis[LambdaLang, Int?] {
       }
     },
     merge: fn(a, b) {
-      match (a, b) {
+      let result = match (a, b) {
         (Some(x), _) => Some(x)
         (_, Some(y)) => Some(y)
         _ => None
       }
+      let a_changed = a != result
+      let b_changed = b != result
+      (result, { a_changed, b_changed })
     },
     modify: fn(egraph, id) {
       match egraph.get_data(id) {
