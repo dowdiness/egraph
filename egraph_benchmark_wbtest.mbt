@@ -1,20 +1,20 @@
 // Benchmarks for AnalyzedEGraph::rebuild.
 //
 // Two scales of a constant-folding e-graph are benchmarked:
-//   small:  100 Num + 50 Add  → ~100 canonical classes → 100×100  = 10,000 iterations
-//   large: 1000 Num + 500 Add → ~1000 canonical classes → 1000×1000 = 1,000,000 iterations
+//   small:  100 Num + 50 Add  → ~100 canonical classes
+//   large: 1000 Num + 500 Add → ~1000 canonical classes
 //
 // After the initial rebuild, constant folding merges each Add(Num(i), Num(i+1))
 // class into Num(2i+1). modify hooks fire on every subsequent rebuild but
 // produce no-op unions (add() returns existing Id; union() is already merged).
 //
-// recompute_data always runs class_ids.length() relaxation passes (design
-// concern #23). For a flat graph the fixed point is reached after 1 pass, so
-// all remaining passes are redundant. Early termination (concern #23) would
-// shrink O(n²) to O(n). Measured baseline:
-//   small: ~738 µs  → early termination expected ~7 µs  (savings ~730 µs)
-//   large: ~124 ms  → early termination expected ~124 µs (savings ~124 ms)
-// The large benchmark makes the savings impossible to miss.
+// Optimization history (stable 1000-class benchmark):
+//   pre-#23 (no early termination): ~124 ms — 1000 passes × 1000 classes = 1M ops
+//   post-#23 (early termination):    ~338 µs — exits after 1 pass for flat graphs
+//   post-#26 (scratch map + swap):   ~264 µs — eliminates per-pass alloc + copy-back
+//
+// Isolation microbenchmark confirms the alloc+copy overhead was ~81 µs
+// (24% of the pre-#26 stable cost). The scratch swap saves ~74 µs in practice.
 //
 // Run with: moon bench --release
 
@@ -56,7 +56,7 @@ fn cf_analysis() -> Analysis[TestLang, Int?] {
 /// (constant folding merges Add classes into the corresponding Num classes),
 /// then measures repeated rebuild calls on the stable graph. modify hooks
 /// fire but produce only no-op unions — no new pending work is enqueued.
-/// Baseline: ~738 µs. Expected after early termination (concern #23): ~7 µs.
+/// Post-#23 baseline: ~20 µs. Post-#26 (scratch swap): ~17 µs.
 test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
   let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
   let nums : Array[Id] = []
@@ -77,12 +77,10 @@ test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
 ///|
 /// Benchmark: rebuild on an already-saturated graph — large scale (1000 classes).
 ///
-/// Same structure as the small variant but 10× larger. recompute_data runs
-/// 1000 passes × 1000 classes = 1M iterations per rebuild call. The harness
-/// gets 10 single-call samples (~124 ms each); σ ≈ 3 ms. Early termination
-/// (design concern #23) would exit after 1 pass, cutting time to ~124 µs —
-/// a ~124 ms improvement that is unambiguous at 10 samples.
-/// Baseline: ~124 ms. Expected after early termination: ~124 µs.
+/// Same structure as the small variant but 10× larger.
+/// Post-#23 baseline (early termination, 1 pass): ~338 µs.
+/// Post-#26 (scratch map + O(1) swap): ~264 µs — saves ~74 µs (22%).
+/// The 22% reduction matches the isolation microbenchmark's ~81 µs alloc cost.
 test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
   let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
   let nums : Array[Id] = []
@@ -107,8 +105,8 @@ test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
 /// rebuild to saturate, unions two previously-distinct classes, then
 /// rebuilds again. Includes graph-construction overhead — this is not an
 /// isolated rebuild measurement. See the stable benchmarks above for
-/// pure recompute_data cost. Useful as an end-to-end reference.
-/// Baseline: ~1.49 ms (dominated by construction + first rebuild).
+/// the full rebuild cost (canonicalize + recompute_data + modify). Useful as an end-to-end reference.
+/// Post-#23 baseline: ~119 µs. Post-#26: ~112 µs.
 test "rebuild: setup + one union + rebuild" (b : @bench.T) {
   b.bench(fn() {
     let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
@@ -124,5 +122,39 @@ test "rebuild: setup + one union + rebuild" (b : @bench.T) {
     eg.union(nums[0], nums[50]) |> ignore
     eg.rebuild()
     b.keep(eg.size())
+  })
+}
+
+///|
+/// Microbenchmark: isolate the pre-#26 alloc+copy pattern as a cost baseline.
+///
+/// Measures the old per-pass cost: allocate a fresh Map[Id, Int?], populate it,
+/// clear the live map, copy entries back. This is NOT what recompute_data does
+/// after the fix — it is retained to quantify the overhead that was eliminated.
+/// Result: ~81 µs (24% of the pre-#26 stable 1000-class cost of ~338 µs).
+/// After the fix, recompute_data uses scratch.clear() + populate + O(1) field
+/// swap, saving ~74 µs per stable rebuild (matches this baseline, as expected).
+test "isolate: map alloc + populate + copy-back at 1000 entries" (b : @bench.T) {
+  // Pre-build a realistic set of Id keys (same as a 1000-class e-graph)
+  let ids : Array[Id] = []
+  for i = 0; i < 1000; i = i + 1 {
+    ids.push(Id(i))
+  }
+  let store : Map[Id, Int?] = {}
+  for id in ids {
+    store[id] = Some(id.0)
+  }
+  b.bench(fn() {
+    // Old recompute_data pattern (pre-#26): alloc fresh map, populate,
+    // clear the live map, copy entries back.
+    let next_data : Map[Id, Int?] = {}
+    for id in ids {
+      next_data[id] = store[id]
+    }
+    store.clear()
+    for id, d in next_data {
+      store[id] = d
+    }
+    b.keep(store.size())
   })
 }

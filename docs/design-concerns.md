@@ -389,18 +389,17 @@ This produces `None` on conflict, making merge commutative: `merge(Some(1), Some
 
 ## 26. `recompute_data` Map-Swap Per Pass
 
-**Concern**: `recompute_data` allocates a fresh `next_data` map per relaxation pass, populates it, clears `self.data`, and copies entries back. Combined with the O(n) pass count (concern #23), this creates O(n) temporary map allocations and O(n^2) total entry copies.
+**Status: Resolved**
 
-**Current choice**: Accept the allocation — the map-swap ensures each pass reads from the previous pass's stable snapshot, avoiding read-after-write hazards from in-place updates.
+**Concern**: `recompute_data` allocates a fresh `next_data` map per relaxation pass, populates it, clears `self.data`, and copies entries back. After concern #23 (early termination), stable graphs run only 1 pass — so the question was whether 1 allocation still matters.
 
-**Alternatives**:
-- In-place update with a "changed" flag (enables early termination too, but risks read-after-write within a pass)
-- Two pre-allocated maps with pointer swap (avoids allocation, but MoonBit struct fields aren't reassignable)
-- Single map with generation counters
+**Investigation**: Isolation microbenchmark measured ~81 µs for alloc + populate + clear + copy at 1000 classes (24% of the ~338 µs stable rebuild cost). The overhead was real and worth addressing.
 
-**Why deferred**: Tied to the relaxation approach (concern #23). Fixing the O(n) pass count via early termination would proportionally reduce the map-swap cost, making it negligible. Solving the pass count is higher priority.
+**Fix**: Added a `mut scratch : Map[Id, D]` field to `AnalyzedEGraph` (pre-allocated, reused across calls). Each pass writes into `scratch`, then swaps `data ↔ scratch` in O(1) by reassigning the `mut` struct fields. MoonBit `mut` struct fields work as expected — confirmed via existing usage in `incr/cells/signal.mbt`.
 
-**Revisit when**: Concern #23 is now resolved. Re-benchmark map allocation cost — if it still shows in profiles, consider the two-map swap approach.
+**Measured result**: Stable 1000-class rebuild: ~338 µs → ~264 µs (−74 µs, −22%). The savings closely match the isolation cost (~81 µs), confirming the model. The remaining ~7 µs gap is the scratch clear O(n) which still runs each pass.
+
+**Trade-off**: `AnalyzedEGraph` now retains two live maps between rebuilds instead of one. During a pass, peak memory is identical to before (both old and new data exist simultaneously). After `recompute_data` returns, `scratch` holds the previous pass's data at full capacity — it is not freed until the next `scratch.clear()`. Resident memory is therefore higher than the pre-#26 baseline by approximately one map's worth of entries. For graphs of the sizes benchmarked (≤1000 classes) this is negligible, but callers with tight memory budgets should be aware. Snapshot semantics are preserved — `data` always holds the previous pass's results during `scratch` population.
 
 ---
 
