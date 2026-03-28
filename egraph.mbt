@@ -1266,16 +1266,21 @@ fn[L, D] AnalyzedEGraph::union(
 
 ///|
 /// Rebuild the e-graph and re-merge analysis data for any congruences found.
+///
+/// Uses `DidMerge` from each `merge` call to identify which e-classes had
+/// their analysis data changed by canonicalization or propagation, then runs
+/// `modify` only on those classes. Classes with stable data are skipped.
 fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
   self : AnalyzedEGraph[L, D],
 ) -> Unit {
   // Keep rebuilding while analysis hooks are introducing new unions.
   while true {
     self.egraph.rebuild()
-    self.canonicalize_data()
+    let changed : @hashset.HashSet[Id] = @hashset.new()
+    self.canonicalize_data(changed)
     let class_ids = self.canonical_class_ids()
-    self.recompute_data(class_ids)
-    for id in class_ids {
+    self.recompute_data(class_ids, changed)
+    for id in changed {
       (self.analysis.modify)(self, id)
     }
     if not(self.egraph.has_pending()) {
@@ -1300,17 +1305,29 @@ fn[L, D] AnalyzedEGraph::canonical_class_ids(
 }
 
 ///|
-fn[L, D] AnalyzedEGraph::canonicalize_data(self : AnalyzedEGraph[L, D]) -> Unit {
+/// Merge stale (non-canonical) data entries into their canonical classes.
+/// Adds to `changed` any canonical class whose data was updated.
+fn[L, D] AnalyzedEGraph::canonicalize_data(
+  self : AnalyzedEGraph[L, D],
+  changed : @hashset.HashSet[Id],
+) -> Unit {
   let stale : Array[Id] = []
   for id, d in self.data {
     let canonical = self.find(id)
     if canonical != id {
       match self.data.get(canonical) {
         Some(existing) => {
-          let (merged, _) = (self.analysis.merge)(existing, d)
+          let (merged, did_merge) = (self.analysis.merge)(existing, d)
           self.data[canonical] = merged
+          // a_changed: the canonical class gained information from the stale entry.
+          if did_merge.a_changed {
+            changed.add(canonical)
+          }
         }
-        None => self.data[canonical] = d
+        None => {
+          self.data[canonical] = d
+          changed.add(canonical) // canonical had no data; now it does
+        }
       }
       stale.push(id)
     }
@@ -1321,12 +1338,25 @@ fn[L, D] AnalyzedEGraph::canonicalize_data(self : AnalyzedEGraph[L, D]) -> Unit 
 }
 
 ///|
-fn[L, D] AnalyzedEGraph::recompute_data(
+/// Re-run `make` on all nodes in each e-class to propagate child data changes.
+/// Adds to `changed` any class whose data differed from its pre-pass value.
+fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::recompute_data(
   self : AnalyzedEGraph[L, D],
   class_ids : Array[Id],
+  changed : @hashset.HashSet[Id],
 ) -> Unit {
   if class_ids.length() == 0 {
     return
+  }
+  // Snapshot data before passes so we can detect per-class changes afterward.
+  // `merge(before, after).a_changed` is true iff `before != after` under the
+  // semilattice, without requiring D : Eq.
+  let before : Map[Id, D] = {}
+  for id in class_ids {
+    match self.data.get(id) {
+      Some(d) => before[id] = d
+      None => ()
+    }
   }
   // Fixed number of relaxation passes to propagate new child facts
   // through parents after congruence changes.
@@ -1367,6 +1397,20 @@ fn[L, D] AnalyzedEGraph::recompute_data(
     self.data.clear()
     for id, d in next_data {
       self.data[id] = d
+    }
+  }
+  // Detect which classes changed: merge(before, after).a_changed is true
+  // iff the class gained information during the passes.
+  for id in class_ids {
+    match (before.get(id), self.data.get(id)) {
+      (Some(old), Some(new_d)) => {
+        let (_, did_merge) = (self.analysis.merge)(old, new_d)
+        if did_merge.a_changed {
+          changed.add(id)
+        }
+      }
+      (None, Some(_)) => changed.add(id) // class had no data before passes
+      _ => ()
     }
   }
 }

@@ -841,3 +841,59 @@ test "BackoffScheduler: caps explosive commutativity rule" {
   assert_true(size_after >= size_before)
   assert_true(size_after < 1000)
 }
+
+// ── DidMerge-aware rebuild tests ──
+
+///|
+test "DidMerge-aware rebuild: modify only fires on changed classes" {
+  // Constant-folding analysis that also counts modify calls.
+  // With DidMerge-aware rebuild, modify should fire only on classes whose
+  // data changed — not on every class every pass.
+  let modify_count = { val: 0 }
+  let analysis : Analysis[TestLang, Int?] = {
+    make: fn(node, get_data) {
+      match node {
+        Num(n) => Some(n)
+        Add(a, b) =>
+          match (get_data(a), get_data(b)) {
+            (Some(x), Some(y)) => Some(x + y)
+            _ => None
+          }
+      }
+    },
+    merge: fn(a, b) {
+      let result = match (a, b) {
+        (Some(x), Some(y)) => if x == y { Some(x) } else { None }
+        (Some(x), None) | (None, Some(x)) => Some(x)
+        _ => None
+      }
+      (result, { a_changed: a != result, b_changed: b != result })
+    },
+    modify: fn(eg, id) {
+      modify_count.val = modify_count.val + 1
+      match eg.get_data(id) {
+        Some(n) => eg.union(id, eg.add(Num(n))) |> ignore
+        None => ()
+      }
+    },
+  }
+  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(analysis)
+  // Add 2 + 3: only 3 classes have constant data (Num(2), Num(3), Add=5).
+  // Num(0) is a stable class with no interesting data.
+  let _two = eg.add(Num(2))
+  let _three = eg.add(Num(3))
+  let _zero = eg.add(Num(0))
+  let _sum = eg.add(Add(_two, _three))
+  // Reset counter after setup (add already called modify)
+  modify_count.val = 0
+  // rebuild with no new unions — no data changes, modify should not fire
+  eg.rebuild()
+  assert_eq(modify_count.val, 0)
+  // Now union _sum with a new Num(5) — triggers modify on the merged class
+  let _five = eg.add(Num(5))
+  modify_count.val = 0
+  eg.union(_sum, _five) |> ignore
+  eg.rebuild()
+  // modify fired for merged class (and possibly _five or _sum) but not all 5 classes
+  assert_true(modify_count.val < 5)
+}
