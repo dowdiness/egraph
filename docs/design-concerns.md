@@ -399,7 +399,7 @@ This produces `None` on conflict, making merge commutative: `merge(Some(1), Some
 
 **Measured result**: Stable 1000-class rebuild: ~338 µs → ~264 µs (−74 µs, −22%). The savings closely match the isolation cost (~81 µs), confirming the model. The remaining ~7 µs gap is the scratch clear O(n) which still runs each pass.
 
-**Trade-off**: One extra `Map[Id, D]` pointer per `AnalyzedEGraph` (negligible memory). Snapshot semantics are preserved — `data` always holds the previous pass's results during `scratch` population.
+**Trade-off**: `AnalyzedEGraph` now retains two live maps between rebuilds instead of one. During a pass, peak memory is identical to before (both old and new data exist simultaneously). After `recompute_data` returns, `scratch` holds the previous pass's data at full capacity — it is not freed until the next `scratch.clear()`. Resident memory is therefore higher than the pre-#26 baseline by approximately one map's worth of entries. For graphs of the sizes benchmarked (≤1000 classes) this is negligible, but callers with tight memory budgets should be aware. Snapshot semantics are preserved — `data` always holds the previous pass's results during `scratch` population.
 
 ---
 

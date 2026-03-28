@@ -105,7 +105,7 @@ test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
 /// rebuild to saturate, unions two previously-distinct classes, then
 /// rebuilds again. Includes graph-construction overhead — this is not an
 /// isolated rebuild measurement. See the stable benchmarks above for
-/// pure recompute_data cost. Useful as an end-to-end reference.
+/// the full rebuild cost (canonicalize + recompute_data + modify). Useful as an end-to-end reference.
 /// Post-#23 baseline: ~119 µs. Post-#26: ~112 µs.
 test "rebuild: setup + one union + rebuild" (b : @bench.T) {
   b.bench(fn() {
@@ -126,15 +126,15 @@ test "rebuild: setup + one union + rebuild" (b : @bench.T) {
 }
 
 ///|
-/// Microbenchmark: isolate the OLD map-swap pattern (pre-#26 baseline).
+/// Microbenchmark: isolate the pre-#26 alloc+copy pattern as a cost baseline.
 ///
-/// Measures the per-pass cost before the scratch optimization: allocate a
-/// fresh Map[Id, Int?], populate it, clear the live map, copy entries back.
-/// This quantifies the allocation overhead that concern #26 targeted.
+/// Measures the old per-pass cost: allocate a fresh Map[Id, Int?], populate it,
+/// clear the live map, copy entries back. This is NOT what recompute_data does
+/// after the fix — it is retained to quantify the overhead that was eliminated.
 /// Result: ~81 µs (24% of the pre-#26 stable 1000-class cost of ~338 µs).
-/// After the fix, recompute_data uses scratch.clear() + populate + O(1) swap,
-/// saving ~74 µs per stable rebuild (matches isolation cost, as expected).
-test "isolate: map alloc + populate + swap at 1000 entries" (b : @bench.T) {
+/// After the fix, recompute_data uses scratch.clear() + populate + O(1) field
+/// swap, saving ~74 µs per stable rebuild (matches this baseline, as expected).
+test "isolate: map alloc + populate + copy-back at 1000 entries" (b : @bench.T) {
   // Pre-build a realistic set of Id keys (same as a 1000-class e-graph)
   let ids : Array[Id] = []
   for i = 0; i < 1000; i = i + 1 {
@@ -145,7 +145,7 @@ test "isolate: map alloc + populate + swap at 1000 entries" (b : @bench.T) {
     store[id] = Some(id.0)
   }
   b.bench(fn() {
-    // Exactly what recompute_data does each pass: alloc fresh map, populate,
+    // Old recompute_data pattern (pre-#26): alloc fresh map, populate,
     // clear the live map, copy entries back.
     let next_data : Map[Id, Int?] = {}
     for id in ids {
