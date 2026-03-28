@@ -100,6 +100,26 @@ fn apply_subst(
       let if_id = eg.add(LIf(sc, st, sf))
       union_with_exact_data(eg, subst_class, if_id, eg.get_data(if_id))
     }
+    LLam(y, body_id) =>
+      if x == y {
+        let lam_id = eg.add(LLam(y, body_id))
+        union_with_exact_data(eg, subst_class, lam_id, eg.get_data(lam_id))
+      } else if not(eg.get_data(v_id).fv.contains(y)) {
+        let new_body = eg.add(LSubst(x, v_id, body_id))
+        let lam_id = eg.add(LLam(y, new_body))
+        union_with_exact_data(eg, subst_class, lam_id, eg.get_data(lam_id))
+      }
+    LLet(y, val_id, body_id) =>
+      if x == y {
+        let new_val = eg.add(LSubst(x, v_id, val_id))
+        let let_id = eg.add(LLet(y, new_val, body_id))
+        union_with_exact_data(eg, subst_class, let_id, eg.get_data(let_id))
+      } else if not(eg.get_data(v_id).fv.contains(y)) {
+        let new_val = eg.add(LSubst(x, v_id, val_id))
+        let new_body = eg.add(LSubst(x, v_id, body_id))
+        let let_id = eg.add(LLet(y, new_val, new_body))
+        union_with_exact_data(eg, subst_class, let_id, eg.get_data(let_id))
+      }
     _ => ()
   }
 }
@@ -388,4 +408,53 @@ test "eval: beta reduction — (λx. x + 1) 5 = 6" {
   eg.rebuild()
   let six = eg.add(LNum(6))
   assert_eq(eg.find(app), eg.find(six))
+}
+
+///|
+test "eval: (λx. λy. x + y) 2 3 = 5 (two beta steps)" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let x = eg.add(LVar("x"))
+  let y = eg.add(LVar("y"))
+  let add_xy = eg.add(LAdd(x, y))
+  let inner_lam = eg.add(LLam("y", add_xy))
+  let outer_lam = eg.add(LLam("x", inner_lam))
+  let two = eg.add(LNum(2))
+  let three = eg.add(LNum(3))
+  let app1 = eg.add(LApp(outer_lam, two))
+  let app2 = eg.add(LApp(app1, three))
+  eg.rebuild()
+  let five = eg.add(LNum(5))
+  assert_eq(eg.find(app2), eg.find(five))
+}
+
+///|
+test "eval: let x = 2 in x + x = 4" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let two = eg.add(LNum(2))
+  let x = eg.add(LVar("x"))
+  let body = eg.add(LAdd(x, x))
+  let let_expr = eg.add(LLet("x", two, body))
+  eg.rebuild()
+  let four = eg.add(LNum(4))
+  assert_eq(eg.find(let_expr), eg.find(four))
+}
+
+///|
+test "eval: (λy. λx. y) x leaves unreduced LSubst in extracted term (capture)" {
+  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let x_free = eg.add(LVar("x"))
+  let y_var = eg.add(LVar("y"))
+  let inner_lam = eg.add(LLam("x", y_var))
+  let outer_lam = eg.add(LLam("y", inner_lam))
+  let app = eg.add(LApp(outer_lam, x_free))
+  eg.rebuild()
+  let (_, expr) = eg.extract(app, ast_size())
+  let mut has_subst = false
+  for n in expr.nodes {
+    match n {
+      LSubst(_, _, _) => has_subst = true
+      _ => ()
+    }
+  }
+  assert_true(has_subst)
 }
