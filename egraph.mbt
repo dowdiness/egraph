@@ -1205,14 +1205,18 @@ priv struct Analysis[L, D] {
 priv struct AnalyzedEGraph[L, D] {
   egraph : EGraph[L]
   analysis : Analysis[L, D]
-  data : Map[Id, D]
+  // `data` is the live map; `scratch` is a pre-allocated buffer reused each
+  // recompute_data pass. After each pass the two maps are swapped in O(1)
+  // instead of allocating a fresh map and copying back N entries.
+  mut data : Map[Id, D]
+  mut scratch : Map[Id, D]
 }
 
 ///|
 fn[L : Hash + Eq, D] AnalyzedEGraph::new(
   analysis : Analysis[L, D],
 ) -> AnalyzedEGraph[L, D] {
-  { egraph: EGraph::new(), analysis, data: {} }
+  { egraph: EGraph::new(), analysis, data: {}, scratch: {} }
 }
 
 ///|
@@ -1351,10 +1355,11 @@ fn[L, D] AnalyzedEGraph::recompute_data(
   // matching Bellman-Ford's "previous distances" semantics.
   let lookup = fn(child) { self.get_data(child) }
   for pass = 0; pass < pass_count; pass = pass + 1 {
-    // Compute new data for every class into a fresh map. We never write
-    // back to self.data mid-pass so that all classes in this pass see the
-    // same consistent view of the previous pass's data.
-    let next_data : Map[Id, D] = {}
+    // Write new data for every class into self.scratch (pre-allocated,
+    // reused across passes). We never write to self.data mid-pass so all
+    // classes see the same consistent view of the previous pass's data —
+    // snapshot semantics matching Bellman-Ford's "previous distances".
+    self.scratch.clear()
     for id in class_ids {
       match self.egraph.classes.get(id) {
         Some(eclass) => {
@@ -1373,12 +1378,12 @@ fn[L, D] AnalyzedEGraph::recompute_data(
             }
           }
           match combined {
-            Some(d) => next_data[id] = d
+            Some(d) => self.scratch[id] = d
             // No nodes produced data; preserve the existing datum so we
             // don't lose information already accumulated for this class.
             None =>
               match self.data.get(id) {
-                Some(old) => next_data[id] = old
+                Some(old) => self.scratch[id] = old
                 None => ()
               }
           }
@@ -1387,7 +1392,7 @@ fn[L, D] AnalyzedEGraph::recompute_data(
         // whatever data we have rather than silently dropping it.
         None =>
           match self.data.get(id) {
-            Some(old) => next_data[id] = old
+            Some(old) => self.scratch[id] = old
             None => ()
           }
       }
@@ -1400,10 +1405,8 @@ fn[L, D] AnalyzedEGraph::recompute_data(
     // with a_changed=false — the decrease is invisible to a_changed alone,
     // and a dependent parent would never be recomputed. Both flags false means
     // merge(old, new) == old == new: the data is unchanged.
-    // This check must happen before self.data.clear() — we still need the
-    // previous pass's values for comparison.
     let mut any_changed = false
-    for id, new_d in next_data {
+    for id, new_d in self.scratch {
       match self.data.get(id) {
         Some(old_d) => {
           let (_, did_merge) = (self.analysis.merge)(old_d, new_d)
@@ -1415,11 +1418,13 @@ fn[L, D] AnalyzedEGraph::recompute_data(
         None => any_changed = true
       }
     }
-    self.data.clear()
-    for id, d in next_data {
-      self.data[id] = d
-    }
-    // Fixed point reached: every class's datum already subsumed next_data.
+    // Swap data ↔ scratch in O(1): scratch (just populated) becomes the new
+    // live map; data (previous pass) becomes the new scratch buffer cleared
+    // at the top of the next pass. No allocation, no N-entry copy-back.
+    let tmp = self.data
+    self.data = self.scratch
+    self.scratch = tmp
+    // Fixed point reached: every class's datum already subsumed scratch.
     // Remaining passes would produce identical results, so stop early.
     if not(any_changed) {
       break
