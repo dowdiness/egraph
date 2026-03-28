@@ -11,8 +11,10 @@
 // recompute_data always runs class_ids.length() relaxation passes (design
 // concern #23). For a flat graph the fixed point is reached after 1 pass, so
 // all remaining passes are redundant. Early termination (concern #23) would
-// shrink O(n²) to O(n). The large-scale benchmark makes that gap measurable:
-// a 2 µs improvement at small scale becomes ~200 µs at large scale.
+// shrink O(n²) to O(n). Measured baseline:
+//   small: ~738 µs  → early termination expected ~7 µs  (savings ~730 µs)
+//   large: ~124 ms  → early termination expected ~124 µs (savings ~124 ms)
+// The large benchmark makes the savings impossible to miss.
 //
 // Run with: moon bench --release
 
@@ -48,17 +50,14 @@ fn cf_analysis() -> Analysis[TestLang, Int?] {
 }
 
 ///|
-/// Benchmark: rebuild on an already-saturated graph (steady-state).
+/// Benchmark: rebuild on an already-saturated graph — small scale (100 classes).
 ///
 /// Builds 100 Num nodes and 50 Add nodes, runs one rebuild to saturate
 /// (constant folding merges Add classes into the corresponding Num classes),
 /// then measures repeated rebuild calls on the stable graph. modify hooks
 /// fire but produce only no-op unions — no new pending work is enqueued.
-/// This is the hot steady-state path that recompute_data early termination
-/// (design concern #23) would most improve.
-test "rebuild: stable large e-graph — all classes already saturated" (
-  b : @bench.T,
-) {
+/// Baseline: ~738 µs. Expected after early termination (concern #23): ~7 µs.
+test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
   let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
   let nums : Array[Id] = []
   for i = 0; i < 100; i = i + 1 {
@@ -76,15 +75,15 @@ test "rebuild: stable large e-graph — all classes already saturated" (
 }
 
 ///|
-/// Benchmark: rebuild on a large saturated graph (scale variant, 1000 classes).
+/// Benchmark: rebuild on an already-saturated graph — large scale (1000 classes).
 ///
-/// Same structure as the small stable benchmark but 10× larger: 1000 Num nodes
-/// and 500 Add nodes. recompute_data runs 1000 passes × 1000 classes = 1M
-/// iterations per rebuild call. Early termination (design concern #23) would
-/// exit after 1 pass — reducing this to 1000 iterations and making the speedup
-/// detectable above the noise floor. Use this benchmark to verify that any
-/// recompute_data optimisation actually works at scale.
-test "rebuild: stable 1000-class e-graph (scale benchmark)" (b : @bench.T) {
+/// Same structure as the small variant but 10× larger. recompute_data runs
+/// 1000 passes × 1000 classes = 1M iterations per rebuild call. The harness
+/// gets 10 single-call samples (~124 ms each); σ ≈ 3 ms. Early termination
+/// (design concern #23) would exit after 1 pass, cutting time to ~124 µs —
+/// a ~124 ms improvement that is unambiguous at 10 samples.
+/// Baseline: ~124 ms. Expected after early termination: ~124 µs.
+test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
   let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
   let nums : Array[Id] = []
   for i = 0; i < 1000; i = i + 1 {
@@ -102,14 +101,15 @@ test "rebuild: stable 1000-class e-graph (scale benchmark)" (b : @bench.T) {
 }
 
 ///|
-/// Benchmark: full setup + one union + rebuild per iteration.
+/// Benchmark: full graph setup + one union + rebuild per iteration.
 ///
-/// Each iteration builds a fresh 150-slot e-graph (100 Num + 50 Add),
-/// saturates it with one rebuild, then unions Num(0) with Num(50) and
-/// calls rebuild again. Measures the incremental rebuild cost on a graph
-/// with one newly dirtied class. Includes graph-construction overhead;
-/// see the stable benchmark for pure steady-state rebuild cost.
-test "rebuild: one union in large e-graph" (b : @bench.T) {
+/// Each iteration builds a fresh e-graph (100 Num + 50 Add), runs one
+/// rebuild to saturate, unions two previously-distinct classes, then
+/// rebuilds again. Includes graph-construction overhead — this is not an
+/// isolated rebuild measurement. See the stable benchmarks above for
+/// pure recompute_data cost. Useful as an end-to-end reference.
+/// Baseline: ~1.49 ms (dominated by construction + first rebuild).
+test "rebuild: setup + one union + rebuild" (b : @bench.T) {
   b.bench(fn() {
     let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(
       cf_analysis(),
