@@ -15,41 +15,31 @@ type CostFn[L]
 pub struct DidMerge {
   a_changed : Bool
   b_changed : Bool
-}
+} derive(Eq, @debug.Debug)
 pub fn DidMerge::a_only() -> Self
 pub fn DidMerge::b_only() -> Self
 pub fn DidMerge::both() -> Self
 pub fn DidMerge::changed(Self) -> Bool
 pub fn DidMerge::neither() -> Self
-pub impl Eq for DidMerge
 pub impl Show for DidMerge
-pub impl @debug.Debug for DidMerge
 
-pub(all) struct Id(Int)
+pub(all) struct Id(Int) derive(Compare, Eq, Hash, @debug.Debug)
 #deprecated
 pub fn Id::inner(Self) -> Int
-pub impl Compare for Id
-pub impl Eq for Id
-pub impl Hash for Id
 pub impl Show for Id
-pub impl @debug.Debug for Id
 
 pub(all) enum Pat {
   Var(String)
   Node(String, String?, Array[Pat])
-}
+} derive(Eq, @debug.Debug)
 pub fn Pat::parse(String) -> Self raise
-pub impl Eq for Pat
 pub impl Show for Pat
-pub impl @debug.Debug for Pat
 
-pub(all) struct Subst(Map[String, Id])
+pub(all) struct Subst(Map[String, Id]) derive(@debug.Debug)
 #alias("_[_]")
 pub fn Subst::get(Self, String) -> Id?
 #deprecated
 pub fn Subst::inner(Self) -> Map[String, Id]
-pub impl Show for Subst
-pub impl @debug.Debug for Subst
 
 // Type aliases
 

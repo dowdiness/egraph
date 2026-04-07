@@ -18,7 +18,12 @@ priv enum LambdaLang {
   LBool(Bool)
   LIsZero(Id)
   LSubst(String, Id, Id)
-} derive(Eq, Hash, Compare, Show, Debug)
+} derive(Eq, Hash, Compare, Debug)
+
+///|
+impl Show for LambdaLang with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 impl ENode for LambdaLang with arity(self) {
