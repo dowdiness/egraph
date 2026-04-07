@@ -641,7 +641,7 @@ fn[L : ENode + ENodeRepr] EGraph::search(
   let visited : @hashset.HashSet[Id] = @hashset.new()
   for id, _ in self.classes {
     let canonical_id = self.find(id)
-    if not(visited.add_and_check(canonical_id)) {
+    if !visited.add_and_check(canonical_id) {
       continue
     }
     let substs = self.ematch(pattern, canonical_id)
@@ -738,7 +738,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
   for pair in matches {
     let (matched_id, subst) = pair
     match rule.condition {
-      Some(cond) => if not(cond(subst)) { continue }
+      Some(cond) => if !cond(subst) { continue }
       None => ()
     }
     let new_id = self.instantiate(rule.rhs, subst)
@@ -797,7 +797,7 @@ fn[L] RecExpr::root(self : RecExpr[L]) -> L {
 /// Cost function type: given an e-node and a lookup for child costs,
 /// return the node's cost. Using a function type (not a trait) because
 /// the cost function doesn't vary by Self — it varies by use case.
-struct CostFn[L]((L, (Id) -> Int) -> Int)
+priv struct CostFn[L]((L, (Id) -> Int) -> Int)
 
 ///|
 /// Simplest cost function: AST size (1 per node + sum of children).
@@ -939,7 +939,7 @@ impl Show for StopReason with output(self, logger) {
 /// currently for bookkeeping, future use in extraction after saturation.
 priv struct Runner[L] {
   egraph : EGraph[L]
-  roots : Array[Id]
+  _roots : Array[Id]
   iter_limit : Int
   node_limit : Int
 }
@@ -953,7 +953,7 @@ fn[L] Runner::new(
   iter_limit? : Int = 30,
   node_limit? : Int = 10_000,
 ) -> Runner[L] {
-  { egraph, roots, iter_limit, node_limit }
+  { egraph, _roots: roots, iter_limit, node_limit }
 }
 
 ///|
@@ -1255,7 +1255,7 @@ fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(
 ) -> Id {
   let id = self.egraph.add(node)
   // Only compute data if this e-class is new (no data yet)
-  if self.data.get(id).is_empty() {
+  if self.data.get(id) is None {
     let d = (self.analysis.make)(node, fn(child) { self.get_data(child) })
     self.data[id] = d
     // Run modify hook — may add nodes or union based on new data
@@ -1305,7 +1305,7 @@ fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
     for id in class_ids {
       (self.analysis.modify)(self, id)
     }
-    if not(self.egraph.has_pending()) {
+    if !self.egraph.has_pending() {
       break
     }
   }
@@ -1438,7 +1438,7 @@ fn[L, D] AnalyzedEGraph::recompute_data(
     let tmp = self.data
     self.data = self.scratch
     self.scratch = tmp
-    if not(any_changed) {
+    if !any_changed {
       break
     }
   }
@@ -1499,7 +1499,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq, D] AnalyzedEGraph::apply_matches(
   for pair in matches {
     let (matched_id, subst) = pair
     match rule.condition {
-      Some(cond) => if not(cond(subst)) { continue }
+      Some(cond) => if !cond(subst) { continue }
       None => ()
     }
     let new_id = self.instantiate(rule.rhs, subst)

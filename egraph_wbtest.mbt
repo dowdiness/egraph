@@ -4,7 +4,7 @@
 priv enum TestLang {
   Num(Int)
   Add(Id, Id)
-} derive(Eq, Hash, Compare, Debug)
+} derive(Eq, Hash, Debug)
 
 ///|
 impl Show for TestLang with output(self, logger) {
@@ -54,7 +54,7 @@ impl ENodeRepr for TestLang with payload(self) {
 ///|
 impl ENodeRepr for TestLang with from_op(tag, payload, children) {
   match (tag, payload, children.length()) {
-    ("Num", Some(s), 0) => Some(Num(@strconv.parse_int(s))) catch { _ => None }
+    ("Num", Some(s), 0) => Some(Num(@string.parse_int(s))) catch { _ => None }
     ("Add", None, 2) => Some(Add(children[0], children[1]))
     _ => None
   }

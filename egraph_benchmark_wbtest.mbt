@@ -155,6 +155,6 @@ test "isolate: map alloc + populate + copy-back at 1000 entries" (b : @bench.T) 
     for id, d in next_data {
       store[id] = d
     }
-    b.keep(store.size())
+    b.keep(store.length())
   })
 }

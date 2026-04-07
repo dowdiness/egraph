@@ -1,15 +1,16 @@
 import {
+  "moonbitlang/core/bench",
   "moonbitlang/core/builtin",
   "moonbitlang/core/debug",
   "moonbitlang/core/hashset",
-  "moonbitlang/core/strconv",
+  "moonbitlang/core/string",
   "dowdiness/lambda/ast",
 }
 
-import {
-  "moonbitlang/core/bench",
-} for "test"
+// -1: unused_value — library API functions not yet consumed within this package
+// -4: missing_priv — CostFn is internal but referenced across test boundaries
+// -7: unused_field — Runner._roots reserved for future extraction
+// -9: struct_never_constructed — Analysis constructed only from test files
+// -29: unused_package — lambda/ast used only in *_wbtest.mbt files
 
-// 29 (unused_package): lambda/ast is used only in *_wbtest.mbt files
-
-warnings = "-29"
+warnings = "-1-4-7-9-29"
