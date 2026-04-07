@@ -10,8 +10,6 @@ import {
 // Errors
 
 // Types and methods
-type CostFn[L]
-
 pub struct DidMerge {
   a_changed : Bool
   b_changed : Bool

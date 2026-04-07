@@ -175,11 +175,11 @@ fn apply_subst(
       if x == y {
         // x is shadowed — substitution does not enter the body
         eg.union(subst_class, eg.add(LLam(y, body_id))) |> ignore
-      } else if not(eg.get_data(v_id).fv.contains(y)) {
+      } else if !eg.get_data(v_id).fv.contains(y) {
         // Safe: y ∉ FV(v), no capture possible
         let new_body = eg.add(LSubst(x, v_id, body_id))
         eg.union(subst_class, eg.add(LLam(y, new_body))) |> ignore
-      } else if not(eg.get_data(body_id).fv.contains(x)) {
+      } else if !eg.get_data(body_id).fv.contains(x) {
         // x ∉ FV(body): substitution is a no-op inside body despite y ∈ FV(v)
         eg.union(subst_class, eg.add(LLam(y, body_id))) |> ignore
       }
@@ -189,11 +189,11 @@ fn apply_subst(
         // x is shadowed in body — substitute only in the binding value
         let new_val = eg.add(LSubst(x, v_id, val_id))
         eg.union(subst_class, eg.add(LLet(y, new_val, body_id))) |> ignore
-      } else if not(eg.get_data(v_id).fv.contains(y)) {
+      } else if !eg.get_data(v_id).fv.contains(y) {
         let new_val = eg.add(LSubst(x, v_id, val_id))
         let new_body = eg.add(LSubst(x, v_id, body_id))
         eg.union(subst_class, eg.add(LLet(y, new_val, new_body))) |> ignore
-      } else if not(eg.get_data(body_id).fv.contains(x)) {
+      } else if !eg.get_data(body_id).fv.contains(x) {
         // x ∉ FV(body): substitute in value only; body is unchanged
         let new_val = eg.add(LSubst(x, v_id, val_id))
         eg.union(subst_class, eg.add(LLet(y, new_val, body_id))) |> ignore
@@ -380,7 +380,7 @@ test "eval: make — FV for new variants" {
   assert_true(eg.get_data(if_expr).fv.contains("y"))
   let subst = eg.add(LSubst("x", num5, y_id))
   assert_true(eg.get_data(subst).fv.contains("y"))
-  assert_true(not(eg.get_data(subst).fv.contains("x")))
+  assert_true(!eg.get_data(subst).fv.contains("x"))
 }
 
 ///|

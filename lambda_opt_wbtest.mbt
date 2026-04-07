@@ -18,7 +18,7 @@ priv enum LambdaLang {
   LBool(Bool)
   LIsZero(Id)
   LSubst(String, Id, Id)
-} derive(Eq, Hash, Compare, Debug)
+} derive(Eq, Hash, Debug)
 
 ///|
 impl Show for LambdaLang with output(self, logger) {
@@ -107,7 +107,7 @@ impl ENodeRepr for LambdaLang with payload(self) {
 ///|
 impl ENodeRepr for LambdaLang with from_op(tag, payload, children) {
   match (tag, payload, children.length()) {
-    ("Num", Some(s), 0) => Some(LNum(@strconv.parse_int(s))) catch { _ => None }
+    ("Num", Some(s), 0) => Some(LNum(@string.parse_int(s))) catch { _ => None }
     ("Var", Some(s), 0) => Some(LVar(s))
     ("Add", None, 2) => Some(LAdd(children[0], children[1]))
     ("Mul", None, 2) => Some(LMul(children[0], children[1]))
