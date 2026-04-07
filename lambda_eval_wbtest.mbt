@@ -67,6 +67,7 @@ fn term_add(eg : EGraph[LambdaLang], term : @ast.Term) -> Id {
     }
     @ast.Term::Unit => eg.add(LNum(0))
     @ast.Term::Error(_) => eg.add(LNum(0))
+    @ast.Term::Hole(_) => eg.add(LNum(0))
   }
 }
 
@@ -75,7 +76,12 @@ fn term_add(eg : EGraph[LambdaLang], term : @ast.Term) -> Id {
 enum ValLit {
   VInt(Int)
   VBool(Bool)
-} derive(Eq, Show)
+} derive(Eq, Debug)
+
+///|
+impl Show for ValLit with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Combined analysis data per e-class.

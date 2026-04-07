@@ -4,7 +4,12 @@
 priv enum TestLang {
   Num(Int)
   Add(Id, Id)
-} derive(Eq, Hash, Compare, Show, Debug)
+} derive(Eq, Hash, Compare, Debug)
+
+///|
+impl Show for TestLang with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 impl ENode for TestLang with arity(self) {
@@ -230,7 +235,12 @@ test "from_op round-trip for Add" {
     node.payload(),
     node.children(),
   )
-  inspect(reconstructed, content="Some(Add(0, 1))")
+  inspect(
+    reconstructed,
+    content=(
+      #|Some(Add(Id(0), Id(1)))
+    ),
+  )
 }
 
 ///|

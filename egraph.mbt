@@ -60,7 +60,7 @@ priv struct UnionFind {
   ranks : Array[Rank]
 
   fn new() -> UnionFind
-} derive(Default, Show, Debug)
+} derive(Default, Debug)
 
 ///|
 fn UnionFind::new() -> UnionFind {
@@ -230,14 +230,19 @@ impl ENodeRepr with op_name(self) {
 pub(all) enum Pat {
   Var(String)
   Node(String, String?, Array[Pat])
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for Pat with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Match result: maps pattern variable names to e-class Ids.
 ///
 /// Example: matching "(Add ?x ?y)" against Add(Id(0), Id(1))
 ///   → Subst({ "x": Id(0), "y": Id(1) })
-pub(all) struct Subst(Map[String, Id]) derive(Show, Debug)
+pub(all) struct Subst(Map[String, Id]) derive(Debug)
 
 ///|
 /// Look up a pattern variable binding.
@@ -919,7 +924,12 @@ priv enum StopReason {
   Saturated
   IterLimit
   NodeLimit
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+///|
+impl Show for StopReason with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 /// Equality saturation executor.
@@ -1145,7 +1155,12 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
 pub struct DidMerge {
   a_changed : Bool
   b_changed : Bool
-} derive(Eq, Show, Debug)
+} derive(Eq, Debug)
+
+///|
+pub impl Show for DidMerge with output(self, logger) {
+  logger.write_string(@debug.to_string(self))
+}
 
 ///|
 pub fn DidMerge::both() -> DidMerge {
