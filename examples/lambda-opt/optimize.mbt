@@ -14,14 +14,23 @@ pub fn optimize(term : @ast.Term) -> @ast.Term {
   let analyzed = @egraph.AnalyzedEGraph::new(eval_analysis())
   let root = analyzed_term_add(analyzed, term)
   analyzed.rebuild()
-  let rules = arith_rules() catch { _ => [] }
-  let runner = @egraph.Runner::new(
-    analyzed.egraph,
-    roots=[root],
-    node_limit=5000,
-  )
-  let _ = runner.run(rules)
-  analyzed.rebuild()
+  let rules = arith_rules() catch {
+    _ => abort("arith_rules: pattern parse failure")
+  }
+  // Saturation loop: apply rewrite rules, then rebuild (which triggers
+  // analysis hooks for constant folding + beta reduction) each iteration.
+  let node_limit = 5000
+  let iter_limit = 30
+  for iter = 0; iter < iter_limit; iter = iter + 1 {
+    let mut applied = 0
+    for rule in rules {
+      applied += analyzed.egraph.apply_rewrite(rule)
+    }
+    analyzed.rebuild()
+    if applied == 0 || analyzed.size() > node_limit {
+      break
+    }
+  }
   let (_, rec) = analyzed.extract(root, @egraph.ast_size())
   rec_expr_to_term(rec)
 }

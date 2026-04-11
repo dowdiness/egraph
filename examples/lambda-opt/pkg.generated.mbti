@@ -17,8 +17,6 @@ pub fn optimize(@ast.Term) -> @ast.Term
 
 pub fn rec_expr_to_term(@egraph.RecExpr[LambdaLang]) -> @ast.Term
 
-pub fn term_add(@egraph.EGraph[LambdaLang], @ast.Term) -> @egraph.Id
-
 // Errors
 
 // Types and methods
