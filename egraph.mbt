@@ -376,7 +376,7 @@ fn is_ident_char(c : Char) -> Bool {
 /// All nodes in the same e-class represent the same semantic value.
 /// For example, after learning that `a * 2 == a << 1`, both e-nodes
 /// would appear in the same e-class.
-priv struct EClass[L] {
+pub struct EClass[L] {
   nodes : Array[L]
 }
 
@@ -394,23 +394,23 @@ priv struct EClass[L] {
 ///   - `pending`: Ids that were recently merged and need congruence repair.
 ///     After union(a, b), rebuild must check if any e-nodes that pointed
 ///     to a or b should now be considered congruent.
-priv struct EGraph[L] {
-  uf : UnionFind
+pub struct EGraph[L] {
+  priv uf : UnionFind
   classes : Map[Id, EClass[L]]
-  memo : Map[L, Id]
-  pending : Array[Id]
+  priv memo : Map[L, Id]
+  priv pending : Array[Id]
 
   fn[L : Hash + Eq] new() -> EGraph[L]
 }
 
 ///|
-fn[L : Hash + Eq] EGraph::new() -> EGraph[L] {
+pub fn[L : Hash + Eq] EGraph::new() -> EGraph[L] {
   { uf: UnionFind(), classes: {}, memo: {}, pending: [] }
 }
 
 ///|
 /// Find the canonical representative.
-fn[L] EGraph::find(self : EGraph[L], id : Id) -> Id {
+pub fn[L] EGraph::find(self : EGraph[L], id : Id) -> Id {
   self.uf.find(id)
 }
 
@@ -423,7 +423,7 @@ fn[L] EGraph::has_pending(self : EGraph[L]) -> Bool {
 ///|
 /// Total number of e-class slots (Union-Find entries).
 /// This grows monotonically — unions merge classes but don't remove slots.
-fn[L] EGraph::size(self : EGraph[L]) -> Int {
+pub fn[L] EGraph::size(self : EGraph[L]) -> Int {
   self.uf.size()
 }
 
@@ -435,7 +435,7 @@ fn[L] EGraph::size(self : EGraph[L]) -> Int {
 /// memo table. If an identical canonical node already exists, return
 /// its existing e-class Id — this is what makes the e-graph compact.
 /// Otherwise, create a fresh e-class containing just this node.
-fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
+pub fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
   // Step 1: Canonicalize children so Add(x, y) and Add(find(x), find(y))
   //         map to the same memo entry.
   let canonical = node.map_children(fn(child) { self.find(child) })
@@ -462,7 +462,7 @@ fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
 ///
 /// Note: this does NOT immediately restore the congruence invariant.
 /// Call `rebuild()` after a batch of unions to restore it.
-fn[L] EGraph::union(self : EGraph[L], a : Id, b : Id) -> Id {
+pub fn[L] EGraph::union(self : EGraph[L], a : Id, b : Id) -> Id {
   let root_a = self.find(a)
   let root_b = self.find(b)
   if root_a == root_b {
@@ -495,7 +495,7 @@ fn[L] EGraph::union(self : EGraph[L], a : Id, b : Id) -> Id {
 ///      e-node, they must be merged.
 ///   5. Apply discovered merges — which may create new congruences,
 ///      so repeat until no more pending work (fixed-point loop).
-fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
+pub fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
   while self.pending.length() > 0 {
     self.pending.clear()
     self.memo.clear()
@@ -554,7 +554,7 @@ fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
 ///
 /// Returns one Subst per successful match. A pattern with N variables
 /// produces substitutions mapping each variable to an e-class Id.
-fn[L : ENode + ENodeRepr] EGraph::ematch(
+pub fn[L : ENode + ENodeRepr] EGraph::ematch(
   self : EGraph[L],
   pattern : Pat,
   eclass_id : Id,
@@ -633,7 +633,7 @@ fn merge_substs(a : Subst, b : Subst) -> Subst? {
 /// Iterates over every canonical e-class and runs ematch against it.
 /// Deduplicates by canonical Id to avoid matching the same e-class twice
 /// (the classes map may contain stale keys that map to the same canonical Id).
-fn[L : ENode + ENodeRepr] EGraph::search(
+pub fn[L : ENode + ENodeRepr] EGraph::search(
   self : EGraph[L],
   pattern : Pat,
 ) -> Array[(Id, Subst)] {
@@ -663,7 +663,7 @@ fn[L : ENode + ENodeRepr] EGraph::search(
 ///   1. search finds: Subst({ "x": Id(3) }) for some Add(3, 0)
 ///   2. instantiate("?x", subst) returns Id(3) — the simplified result
 ///   3. union the original Add e-class with Id(3) to record the equivalence
-fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
+pub fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
   self : EGraph[L],
   pattern : Pat,
   subst : Subst,
@@ -705,16 +705,20 @@ fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
 
 ///|
 /// A rewrite rule: lhs pattern → rhs pattern.
-priv struct Rewrite {
-  name : String
-  lhs : Pat
-  rhs : Pat
-  condition : ((Subst) -> Bool)?
+pub struct Rewrite {
+  priv name : String
+  priv lhs : Pat
+  priv rhs : Pat
+  priv condition : ((Subst) -> Bool)?
 }
 
 ///|
 /// Convenience constructor: parse s-expression strings into a Rewrite.
-fn rewrite(name : String, lhs : String, rhs : String) -> Rewrite raise Error {
+pub fn rewrite(
+  name : String,
+  lhs : String,
+  rhs : String,
+) -> Rewrite raise Error {
   { name, lhs: Pat::parse(lhs), rhs: Pat::parse(rhs), condition: None }
 }
 
@@ -729,7 +733,7 @@ fn rewrite(name : String, lhs : String, rhs : String) -> Rewrite raise Error {
 /// Returns the number of new unions performed.
 /// Used by both `apply_rewrite` (single-rule convenience) and
 /// `Runner::run` (batched two-phase equality saturation).
-fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
+pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
   self : EGraph[L],
   rule : Rewrite,
   matches : Array[(Id, Subst)],
@@ -755,7 +759,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
 ///
 /// Convenience wrapper: searches for lhs matches, then applies them.
 /// Caller should call `rebuild()` afterward to restore congruence.
-fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
+pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
   self : EGraph[L],
   rule : Rewrite,
 ) -> Int {
@@ -783,13 +787,13 @@ fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
 /// A recursively-defined expression stored as a flat array.
 /// nodes[i]'s children are Ids that index into this same array.
 /// The root is always the last element.
-priv struct RecExpr[L] {
+pub struct RecExpr[L] {
   nodes : Array[L]
 }
 
 ///|
 /// Return the root node (last element).
-fn[L] RecExpr::root(self : RecExpr[L]) -> L {
+pub fn[L] RecExpr::root(self : RecExpr[L]) -> L {
   self.nodes[self.nodes.length() - 1]
 }
 
@@ -797,11 +801,11 @@ fn[L] RecExpr::root(self : RecExpr[L]) -> L {
 /// Cost function type: given an e-node and a lookup for child costs,
 /// return the node's cost. Using a function type (not a trait) because
 /// the cost function doesn't vary by Self — it varies by use case.
-priv struct CostFn[L]((L, (Id) -> Int) -> Int)
+pub struct CostFn[L]((L, (Id) -> Int) -> Int)
 
 ///|
 /// Simplest cost function: AST size (1 per node + sum of children).
-fn[L : ENode] ast_size() -> CostFn[L] {
+pub fn[L : ENode] ast_size() -> CostFn[L] {
   CostFn(fn(node, child_cost) {
     let mut cost = 1
     for i = 0; i < node.arity(); i = i + 1 {
@@ -817,7 +821,7 @@ fn[L : ENode] ast_size() -> CostFn[L] {
 /// Returns (cost, RecExpr) where RecExpr is a flattened tree with the
 /// root as the last element. Children in RecExpr nodes use Ids that
 /// index into the RecExpr's nodes array.
-fn[L : ENode] EGraph::extract(
+pub fn[L : ENode] EGraph::extract(
   self : EGraph[L],
   root : Id,
   cost_fn : CostFn[L],
@@ -920,7 +924,7 @@ fn[L : ENode] reconstruct(
 
 ///|
 /// Why the equality saturation loop stopped.
-priv enum StopReason {
+pub enum StopReason {
   Saturated
   IterLimit
   NodeLimit
@@ -937,17 +941,17 @@ impl Show for StopReason with output(self, logger) {
 /// Wraps an e-graph and runs rewrite rules until saturation or a limit.
 /// `roots` are Ids of interest (e.g., the expression to optimize) —
 /// currently for bookkeeping, future use in extraction after saturation.
-priv struct Runner[L] {
-  egraph : EGraph[L]
-  _roots : Array[Id]
-  iter_limit : Int
-  node_limit : Int
+pub struct Runner[L] {
+  priv egraph : EGraph[L]
+  priv _roots : Array[Id]
+  priv iter_limit : Int
+  priv node_limit : Int
 }
 
 ///|
 /// Create a Runner with default limits.
 /// iter_limit defaults to 30, node_limit defaults to 10_000.
-fn[L] Runner::new(
+pub fn[L] Runner::new(
   egraph : EGraph[L],
   roots? : Array[Id] = [],
   iter_limit? : Int = 30,
@@ -960,7 +964,7 @@ fn[L] Runner::new(
 /// Run equality saturation: apply rewrite rules until saturation or a limit.
 ///
 /// Returns why the loop stopped.
-fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
+pub fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
   self : Runner[L],
   rules : Array[Rewrite],
 ) -> StopReason {
@@ -1152,7 +1156,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
 /// `b_changed`: the second argument was updated.
 /// Returned by `Analysis.merge` to let callers skip redundant work on
 /// e-classes whose analysis data is already stable.
-pub struct DidMerge {
+pub(all) struct DidMerge {
   a_changed : Bool
   b_changed : Bool
 } derive(Eq, Debug)
@@ -1192,7 +1196,7 @@ pub fn DidMerge::changed(self : DidMerge) -> Bool {
 
 ///|
 /// Analysis callbacks: compute, merge, and react to per-e-class data.
-priv struct Analysis[L, D] {
+pub(all) struct Analysis[L, D] {
   /// Compute data for a single e-node. `get_data` looks up children's data.
   make : (L, (Id) -> D) -> D
   /// Combine data from two e-classes being merged.
@@ -1217,18 +1221,18 @@ priv struct Analysis[L, D] {
 ///|
 /// E-graph with per-e-class analysis data.
 /// Wraps `EGraph[L]` and maintains a parallel `data` map.
-priv struct AnalyzedEGraph[L, D] {
+pub struct AnalyzedEGraph[L, D] {
   egraph : EGraph[L]
-  analysis : Analysis[L, D]
+  priv analysis : Analysis[L, D]
   // `data` is the live map; `scratch` is a pre-allocated buffer reused each
   // recompute_data pass. After each pass the two maps are swapped in O(1)
   // instead of allocating a fresh map and copying back N entries.
-  mut data : Map[Id, D]
-  mut scratch : Map[Id, D]
+  priv mut data : Map[Id, D]
+  priv mut scratch : Map[Id, D]
 }
 
 ///|
-fn[L : Hash + Eq, D] AnalyzedEGraph::new(
+pub fn[L : Hash + Eq, D] AnalyzedEGraph::new(
   analysis : Analysis[L, D],
 ) -> AnalyzedEGraph[L, D] {
   { egraph: EGraph::new(), analysis, data: {}, scratch: {} }
@@ -1236,20 +1240,23 @@ fn[L : Hash + Eq, D] AnalyzedEGraph::new(
 
 ///|
 /// Find the canonical representative.
-fn[L, D] AnalyzedEGraph::find(self : AnalyzedEGraph[L, D], id : Id) -> Id {
+pub fn[L, D] AnalyzedEGraph::find(self : AnalyzedEGraph[L, D], id : Id) -> Id {
   self.egraph.find(id)
 }
 
 ///|
 /// Look up analysis data for an e-class (using canonical Id).
-fn[L, D] AnalyzedEGraph::get_data(self : AnalyzedEGraph[L, D], id : Id) -> D {
+pub fn[L, D] AnalyzedEGraph::get_data(
+  self : AnalyzedEGraph[L, D],
+  id : Id,
+) -> D {
   let canonical = self.find(id)
   self.data[canonical]
 }
 
 ///|
 /// Add an e-node, compute its analysis data, and run the modify hook.
-fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(
+pub fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(
   self : AnalyzedEGraph[L, D],
   node : L,
 ) -> Id {
@@ -1266,7 +1273,7 @@ fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(
 
 ///|
 /// Merge two e-classes and merge their analysis data.
-fn[L, D] AnalyzedEGraph::union(
+pub fn[L, D] AnalyzedEGraph::union(
   self : AnalyzedEGraph[L, D],
   a : Id,
   b : Id,
@@ -1293,7 +1300,7 @@ fn[L, D] AnalyzedEGraph::union(
 
 ///|
 /// Rebuild the e-graph and re-merge analysis data for any congruences found.
-fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
+pub fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(
   self : AnalyzedEGraph[L, D],
 ) -> Unit {
   // Keep rebuilding while analysis hooks are introducing new unions.
@@ -1446,7 +1453,7 @@ fn[L, D] AnalyzedEGraph::recompute_data(
 
 ///|
 /// Total number of e-class slots.
-fn[L, D] AnalyzedEGraph::size(self : AnalyzedEGraph[L, D]) -> Int {
+pub fn[L, D] AnalyzedEGraph::size(self : AnalyzedEGraph[L, D]) -> Int {
   self.egraph.size()
 }
 
@@ -1513,7 +1520,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq, D] AnalyzedEGraph::apply_matches(
 
 ///|
 /// Extract the best expression (delegates to inner e-graph).
-fn[L : ENode, D] AnalyzedEGraph::extract(
+pub fn[L : ENode, D] AnalyzedEGraph::extract(
   self : AnalyzedEGraph[L, D],
   root : Id,
   cost_fn : CostFn[L],

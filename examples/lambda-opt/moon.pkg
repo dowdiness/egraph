@@ -1,0 +1,7 @@
+import {
+  "dowdiness/egraph" @egraph,
+  "dowdiness/lambda/ast" @ast,
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashset",
+  "moonbitlang/core/string",
+}

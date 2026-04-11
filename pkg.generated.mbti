@@ -6,11 +6,37 @@ import {
 }
 
 // Values
+pub fn[L : ENode] ast_size() -> CostFn[L]
+
+pub fn rewrite(String, String, String) -> Rewrite raise
 
 // Errors
 
 // Types and methods
-pub struct DidMerge {
+pub(all) struct Analysis[L, D] {
+  make : (L, (Id) -> D) -> D
+  merge : (D, D) -> (D, DidMerge)
+  modify : (AnalyzedEGraph[L, D], Id) -> Unit
+}
+
+pub struct AnalyzedEGraph[L, D] {
+  egraph : EGraph[L]
+  // private fields
+}
+pub fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(Self[L, D], L) -> Id
+pub fn[L : ENode, D] AnalyzedEGraph::extract(Self[L, D], Id, CostFn[L]) -> (Int, RecExpr[L])
+pub fn[L, D] AnalyzedEGraph::find(Self[L, D], Id) -> Id
+pub fn[L, D] AnalyzedEGraph::get_data(Self[L, D], Id) -> D
+pub fn[L : Hash + Eq, D] AnalyzedEGraph::new(Analysis[L, D]) -> Self[L, D]
+pub fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(Self[L, D]) -> Unit
+pub fn[L, D] AnalyzedEGraph::size(Self[L, D]) -> Int
+pub fn[L, D] AnalyzedEGraph::union(Self[L, D], Id, Id) -> Id
+
+pub struct CostFn[L]((L, (Id) -> Int) -> Int)
+#deprecated
+pub fn[L] CostFn::inner(Self[L]) -> (L, (Id) -> Int) -> Int
+
+pub(all) struct DidMerge {
   a_changed : Bool
   b_changed : Bool
 } derive(Eq, @debug.Debug)
@@ -20,6 +46,29 @@ pub fn DidMerge::both() -> Self
 pub fn DidMerge::changed(Self) -> Bool
 pub fn DidMerge::neither() -> Self
 pub impl Show for DidMerge
+
+pub struct EClass[L] {
+  nodes : Array[L]
+}
+
+pub struct EGraph[L] {
+  classes : Map[Id, EClass[L]]
+  // private fields
+
+  fn[L : Hash + Eq] new() -> EGraph[L]
+}
+pub fn[L : ENode + Hash + Eq] EGraph::add(Self[L], L) -> Id
+pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(Self[L], Rewrite, Array[(Id, Subst)]) -> Int
+pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(Self[L], Rewrite) -> Int
+pub fn[L : ENode + ENodeRepr] EGraph::ematch(Self[L], Pat, Id) -> Array[Subst]
+pub fn[L : ENode] EGraph::extract(Self[L], Id, CostFn[L]) -> (Int, RecExpr[L])
+pub fn[L] EGraph::find(Self[L], Id) -> Id
+pub fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(Self[L], Pat, Subst) -> Id
+pub fn[L : Hash + Eq] EGraph::new() -> Self[L]
+pub fn[L : ENode + Hash + Eq] EGraph::rebuild(Self[L]) -> Unit
+pub fn[L : ENode + ENodeRepr] EGraph::search(Self[L], Pat) -> Array[(Id, Subst)]
+pub fn[L] EGraph::size(Self[L]) -> Int
+pub fn[L] EGraph::union(Self[L], Id, Id) -> Id
 
 pub(all) struct Id(Int) derive(Compare, Eq, Hash, @debug.Debug)
 #deprecated
@@ -32,6 +81,27 @@ pub(all) enum Pat {
 } derive(Eq, @debug.Debug)
 pub fn Pat::parse(String) -> Self raise
 pub impl Show for Pat
+
+pub struct RecExpr[L] {
+  nodes : Array[L]
+}
+pub fn[L] RecExpr::root(Self[L]) -> L
+
+pub struct Rewrite {
+  // private fields
+}
+
+pub struct Runner[L] {
+  // private fields
+}
+pub fn[L] Runner::new(EGraph[L], roots? : Array[Id], iter_limit? : Int, node_limit? : Int) -> Self[L]
+pub fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(Self[L], Array[Rewrite]) -> StopReason
+
+pub enum StopReason {
+  Saturated
+  IterLimit
+  NodeLimit
+} derive(Eq, @debug.Debug)
 
 pub(all) struct Subst(Map[String, Id]) derive(@debug.Debug)
 #alias("_[_]")
