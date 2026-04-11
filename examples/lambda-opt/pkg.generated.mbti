@@ -1,0 +1,48 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "dowdiness/egraph/examples/lambda-opt"
+
+import {
+  "dowdiness/egraph",
+  "dowdiness/lambda/ast",
+  "moonbitlang/core/debug",
+  "moonbitlang/core/hashset",
+}
+
+// Values
+pub fn arith_rules() -> Array[@egraph.Rewrite] raise
+
+pub fn eval_analysis() -> @egraph.Analysis[LambdaLang, EvalState]
+
+pub fn optimize(@ast.Term) -> @ast.Term
+
+pub fn rec_expr_to_term(@egraph.RecExpr[LambdaLang]) -> @ast.Term
+
+pub fn term_add(@egraph.EGraph[LambdaLang], @ast.Term) -> @egraph.Id
+
+// Errors
+
+// Types and methods
+pub(all) struct EvalState {
+  fv : @hashset.HashSet[String]
+  val : Int?
+}
+
+pub enum LambdaLang {
+  LNum(Int)
+  LVar(String)
+  LAdd(@egraph.Id, @egraph.Id)
+  LMinus(@egraph.Id, @egraph.Id)
+  LLam(String, @egraph.Id)
+  LApp(@egraph.Id, @egraph.Id)
+  LLet(String, @egraph.Id, @egraph.Id)
+  LIf(@egraph.Id, @egraph.Id, @egraph.Id)
+  LSubst(String, @egraph.Id, @egraph.Id)
+} derive(Eq, Hash, @debug.Debug)
+pub impl @egraph.ENode for LambdaLang
+pub impl @egraph.ENodeRepr for LambdaLang
+pub impl Show for LambdaLang
+
+// Type aliases
+
+// Traits
+

@@ -13,7 +13,7 @@ pub fn rewrite(String, String, String) -> Rewrite raise
 // Errors
 
 // Types and methods
-pub struct Analysis[L, D] {
+pub(all) struct Analysis[L, D] {
   make : (L, (Id) -> D) -> D
   merge : (D, D) -> (D, DidMerge)
   modify : (AnalyzedEGraph[L, D], Id) -> Unit
@@ -36,7 +36,7 @@ pub struct CostFn[L]((L, (Id) -> Int) -> Int)
 #deprecated
 pub fn[L] CostFn::inner(Self[L]) -> (L, (Id) -> Int) -> Int
 
-pub struct DidMerge {
+pub(all) struct DidMerge {
   a_changed : Bool
   b_changed : Bool
 } derive(Eq, @debug.Debug)
@@ -47,7 +47,12 @@ pub fn DidMerge::changed(Self) -> Bool
 pub fn DidMerge::neither() -> Self
 pub impl Show for DidMerge
 
+pub struct EClass[L] {
+  nodes : Array[L]
+}
+
 pub struct EGraph[L] {
+  classes : Map[Id, EClass[L]]
   // private fields
 
   fn[L : Hash + Eq] new() -> EGraph[L]

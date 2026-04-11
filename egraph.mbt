@@ -376,7 +376,7 @@ fn is_ident_char(c : Char) -> Bool {
 /// All nodes in the same e-class represent the same semantic value.
 /// For example, after learning that `a * 2 == a << 1`, both e-nodes
 /// would appear in the same e-class.
-priv struct EClass[L] {
+pub struct EClass[L] {
   nodes : Array[L]
 }
 
@@ -396,7 +396,7 @@ priv struct EClass[L] {
 ///     to a or b should now be considered congruent.
 pub struct EGraph[L] {
   priv uf : UnionFind
-  priv classes : Map[Id, EClass[L]]
+  classes : Map[Id, EClass[L]]
   priv memo : Map[L, Id]
   priv pending : Array[Id]
 
@@ -1156,7 +1156,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
 /// `b_changed`: the second argument was updated.
 /// Returned by `Analysis.merge` to let callers skip redundant work on
 /// e-classes whose analysis data is already stable.
-pub struct DidMerge {
+pub(all) struct DidMerge {
   a_changed : Bool
   b_changed : Bool
 } derive(Eq, Debug)
@@ -1196,7 +1196,7 @@ pub fn DidMerge::changed(self : DidMerge) -> Bool {
 
 ///|
 /// Analysis callbacks: compute, merge, and react to per-e-class data.
-pub struct Analysis[L, D] {
+pub(all) struct Analysis[L, D] {
   /// Compute data for a single e-node. `get_data` looks up children's data.
   make : (L, (Id) -> D) -> D
   /// Combine data from two e-classes being merged.
