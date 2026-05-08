@@ -58,7 +58,9 @@ fn cf_analysis() -> Analysis[TestLang, Int?] {
 /// fire but produce only no-op unions — no new pending work is enqueued.
 /// Post-#23 baseline: ~20 µs. Post-#26 (scratch swap): ~17 µs.
 test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
-  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
+  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::AnalyzedEGraph(
+    cf_analysis(),
+  )
   let nums : Array[Id] = []
   for i = 0; i < 100; i = i + 1 {
     nums.push(eg.add(Num(i)))
@@ -82,7 +84,9 @@ test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
 /// Post-#26 (scratch map + O(1) swap): ~264 µs — saves ~74 µs (22%).
 /// The 22% reduction matches the isolation microbenchmark's ~81 µs alloc cost.
 test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
-  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
+  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::AnalyzedEGraph(
+    cf_analysis(),
+  )
   let nums : Array[Id] = []
   for i = 0; i < 1000; i = i + 1 {
     nums.push(eg.add(Num(i)))
@@ -109,7 +113,9 @@ test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
 /// Post-#23 baseline: ~119 µs. Post-#26: ~112 µs.
 test "rebuild: setup + one union + rebuild" (b : @bench.T) {
   b.bench(fn() {
-    let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::new(cf_analysis())
+    let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::AnalyzedEGraph(
+      cf_analysis(),
+    )
     let nums : Array[Id] = []
     for i = 0; i < 100; i = i + 1 {
       nums.push(eg.add(Num(i)))

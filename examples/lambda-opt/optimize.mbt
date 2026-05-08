@@ -11,7 +11,7 @@
 /// analysis-driven constant folding + beta reduction. Returns the
 /// simplest equivalent term by AST size.
 pub fn optimize(term : @ast.Term) -> @ast.Term {
-  let analyzed = @egraph.AnalyzedEGraph::new(eval_analysis())
+  let analyzed = @egraph.AnalyzedEGraph::AnalyzedEGraph(eval_analysis())
   let root = analyzed_term_add(analyzed, term)
   analyzed.rebuild()
   let rules = arith_rules() catch {
