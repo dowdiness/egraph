@@ -67,15 +67,25 @@ test "make_set returns fresh Id" {
   let uf = UnionFind()
   let a = uf.make_set()
   let b = uf.make_set()
-  inspect(a, content="0")
-  inspect(b, content="1")
+  debug_inspect(
+    a,
+    content=(
+      #|Id(0)
+    ),
+  )
+  debug_inspect(
+    b,
+    content=(
+      #|Id(1)
+    ),
+  )
 }
 
 ///|
 test "find of fresh Id returns itself" {
   let uf = UnionFind()
   let a = uf.make_set()
-  assert_eq(uf.find(a), a)
+  @debug.assert_eq(uf.find(a), a)
 }
 
 ///|
@@ -84,7 +94,7 @@ test "union makes find agree" {
   let a = uf.make_set()
   let b = uf.make_set()
   uf.union(a, b) |> ignore
-  assert_eq(uf.find(a), uf.find(b))
+  @debug.assert_eq(uf.find(a), uf.find(b))
 }
 
 ///|
@@ -95,17 +105,17 @@ test "transitivity: union(a,b) then union(b,c) means find(a)==find(c)" {
   let c = uf.make_set()
   uf.union(a, b) |> ignore
   uf.union(b, c) |> ignore
-  assert_eq(uf.find(a), uf.find(c))
+  @debug.assert_eq(uf.find(a), uf.find(c))
 }
 
 ///|
 test "size tracks number of elements" {
   let uf = UnionFind()
-  assert_eq(uf.size(), 0)
+  @debug.assert_eq(uf.size(), 0)
   uf.make_set() |> ignore
-  assert_eq(uf.size(), 1)
+  @debug.assert_eq(uf.size(), 1)
   uf.make_set() |> ignore
-  assert_eq(uf.size(), 2)
+  @debug.assert_eq(uf.size(), 2)
 }
 
 ///|
@@ -115,8 +125,8 @@ test "union is idempotent" {
   let b = uf.make_set()
   let r1 = uf.union(a, b)
   let r2 = uf.union(a, b)
-  assert_eq(r1, r2)
-  assert_eq(uf.find(a), uf.find(b))
+  @debug.assert_eq(r1, r2)
+  @debug.assert_eq(uf.find(a), uf.find(b))
 }
 
 ///|
@@ -130,29 +140,29 @@ test "path compression: find updates parent to root" {
   uf.union(b, c) |> ignore
   let root = uf.find(a)
   // After path compression, a points directly to root
-  assert_eq(uf.find(a), root)
-  assert_eq(uf.find(b), root)
-  assert_eq(uf.find(c), root)
+  @debug.assert_eq(uf.find(a), root)
+  @debug.assert_eq(uf.find(b), root)
+  @debug.assert_eq(uf.find(c), root)
 }
 
 ///|
 test "add returns an Id" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let id = eg.add(Num(42))
-  assert_eq(eg.find(id), id)
+  @debug.assert_eq(eg.find(id), id)
 }
 
 ///|
 test "add is idempotent: same node returns same Id" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(42))
   let b = eg.add(Num(42))
-  assert_eq(a, b)
+  @debug.assert_eq(a, b)
 }
 
 ///|
 test "add canonicalizes children" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let x = eg.add(Num(1))
   let y = eg.add(Num(2))
   let sum1 = eg.add(Add(x, y))
@@ -160,21 +170,21 @@ test "add canonicalizes children" {
   eg.union(x, y) |> ignore
   eg.rebuild()
   let sum2 = eg.add(Add(y, y))
-  assert_eq(eg.find(sum1), eg.find(sum2))
+  @debug.assert_eq(eg.find(sum1), eg.find(sum2))
 }
 
 ///|
 test "union merges e-classes" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   eg.union(a, b) |> ignore
-  assert_eq(eg.find(a), eg.find(b))
+  @debug.assert_eq(eg.find(a), eg.find(b))
 }
 
 ///|
 test "congruence: union(a,b) means f(a) and f(b) merge after rebuild" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let c = eg.add(Num(3))
@@ -185,46 +195,66 @@ test "congruence: union(a,b) means f(a) and f(b) merge after rebuild" {
   // After union(a, b) and rebuild, congruence should merge fa and fb
   eg.union(a, b) |> ignore
   eg.rebuild()
-  assert_eq(eg.find(fa), eg.find(fb))
+  @debug.assert_eq(eg.find(fa), eg.find(fb))
 }
 
 ///|
 test "rebuild is idempotent when no pending work" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   eg.union(a, b) |> ignore
   eg.rebuild()
   let root = eg.find(a)
   eg.rebuild()
-  assert_eq(eg.find(a), root)
+  @debug.assert_eq(eg.find(a), root)
 }
 
 // ── ENodeRepr tests ──
 
 ///|
 test "op_tag returns operator without payload" {
-  inspect(Num(42).op_tag(), content="Num")
-  inspect(Add(Id(0), Id(1)).op_tag(), content="Add")
+  debug_inspect(
+    Num(42).op_tag(),
+    content=(
+      #|"Num"
+    ),
+  )
+  debug_inspect(
+    Add(Id(0), Id(1)).op_tag(),
+    content=(
+      #|"Add"
+    ),
+  )
 }
 
 ///|
 test "payload returns encoded value" {
-  inspect(Num(42).payload(), content="Some(\"42\")")
-  inspect(Add(Id(0), Id(1)).payload(), content="None")
+  debug_inspect(Num(42).payload(), content="Some(\"42\")")
+  debug_inspect(Add(Id(0), Id(1)).payload(), content="None")
 }
 
 ///|
 test "op_name derives from op_tag and payload" {
-  inspect(Num(42).op_name(), content="Num:42")
-  inspect(Add(Id(0), Id(1)).op_name(), content="Add")
+  debug_inspect(
+    Num(42).op_name(),
+    content=(
+      #|"Num:42"
+    ),
+  )
+  debug_inspect(
+    Add(Id(0), Id(1)).op_name(),
+    content=(
+      #|"Add"
+    ),
+  )
 }
 
 ///|
 test "from_op round-trip for Num" {
   let node = Num(42)
   let reconstructed = TestLang::from_op(node.op_tag(), node.payload(), [])
-  inspect(reconstructed, content="Some(Num(42))")
+  debug_inspect(reconstructed, content="Some(Num(42))")
 }
 
 ///|
@@ -235,7 +265,7 @@ test "from_op round-trip for Add" {
     node.payload(),
     node.children(),
   )
-  inspect(
+  debug_inspect(
     reconstructed,
     content=(
       #|Some(Add(Id(0), Id(1)))
@@ -246,13 +276,13 @@ test "from_op round-trip for Add" {
 ///|
 test "from_op rejects unknown op" {
   let result = TestLang::from_op("Unknown", None, [])
-  inspect(result, content="None")
+  debug_inspect(result, content="None")
 }
 
 ///|
 test "from_op rejects wrong arity" {
   let result = TestLang::from_op("Add", None, [Id(0)])
-  inspect(result, content="None")
+  debug_inspect(result, content="None")
 }
 
 // ── Pat parse tests ──
@@ -260,19 +290,19 @@ test "from_op rejects wrong arity" {
 ///|
 test "parse variable" {
   let pat = Pat::parse("?x")
-  inspect(pat, content="Var(\"x\")")
+  debug_inspect(pat, content="Var(\"x\")")
 }
 
 ///|
 test "parse atom" {
   let pat = Pat::parse("(Num:0)")
-  inspect(pat, content="Node(\"Num\", Some(\"0\"), [])")
+  debug_inspect(pat, content="Node(\"Num\", Some(\"0\"), [])")
 }
 
 ///|
 test "parse nested" {
   let pat = Pat::parse("(Add ?x (Num:0))")
-  inspect(
+  debug_inspect(
     pat,
     content="Node(\"Add\", None, [Var(\"x\"), Node(\"Num\", Some(\"0\"), [])])",
   )
@@ -281,7 +311,7 @@ test "parse nested" {
 ///|
 test "parse deeply nested" {
   let pat = Pat::parse("(Add (Add ?x ?y) ?z)")
-  inspect(
+  debug_inspect(
     pat,
     content="Node(\"Add\", None, [Node(\"Add\", None, [Var(\"x\"), Var(\"y\")]), Var(\"z\")])",
   )
@@ -303,99 +333,99 @@ test "panic parse rejects invalid token in child position" {
 test "children derived from arity and child" {
   let node = Add(Id(0), Id(1))
   let cs = node.children()
-  assert_eq(cs.length(), 2)
-  assert_eq(cs[0], Id(0))
-  assert_eq(cs[1], Id(1))
+  @debug.assert_eq(cs.length(), 2)
+  @debug.assert_eq(cs[0], Id(0))
+  @debug.assert_eq(cs[1], Id(1))
 }
 
 ///|
 test "children of leaf node is empty" {
   let node = Num(42)
-  assert_eq(node.children().length(), 0)
+  @debug.assert_eq(node.children().length(), 0)
 }
 
 // ── E-matching tests ──
 
 ///|
 test "ematch variable matches any e-class" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let pat = Pat::parse("?x")
   let results = eg.ematch(pat, a)
-  assert_eq(results.length(), 1)
-  assert_eq(results[0].get("x"), Some(a))
+  @debug.assert_eq(results.length(), 1)
+  @debug.assert_eq(results[0].get("x"), Some(a))
 }
 
 ///|
 test "ematch concrete pattern matches" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(0))
   let pat = Pat::parse("(Num:0)")
   let results = eg.ematch(pat, a)
-  assert_eq(results.length(), 1)
+  @debug.assert_eq(results.length(), 1)
 }
 
 ///|
 test "ematch concrete pattern rejects mismatch" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let pat = Pat::parse("(Num:0)")
   let results = eg.ematch(pat, a)
-  assert_eq(results.length(), 0)
+  @debug.assert_eq(results.length(), 0)
 }
 
 ///|
 test "ematch same variable binds consistently" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let sum = eg.add(Add(a, a))
   let pat = Pat::parse("(Add ?x ?x)")
   let results = eg.ematch(pat, sum)
-  assert_eq(results.length(), 1)
+  @debug.assert_eq(results.length(), 1)
 }
 
 ///|
 test "ematch same variable rejects inconsistent binding" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let sum = eg.add(Add(a, b))
   let pat = Pat::parse("(Add ?x ?x)")
   let results = eg.ematch(pat, sum)
-  assert_eq(results.length(), 0)
+  @debug.assert_eq(results.length(), 0)
 }
 
 ///|
 test "search finds matches across all e-classes" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let _ = eg.add(Add(a, zero))
   let pat = Pat::parse("(Add ?x (Num:0))")
   let results = eg.search(pat)
-  assert_eq(results.length(), 1)
+  @debug.assert_eq(results.length(), 1)
 }
 
 // ── Instantiate tests ──
 
 ///|
 test "instantiate variable uses substitution" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(42))
   let subst = Subst({ "x": a })
   let result = eg.instantiate(Pat::parse("?x"), subst)
-  assert_eq(eg.find(result), eg.find(a))
+  @debug.assert_eq(eg.find(result), eg.find(a))
 }
 
 ///|
 test "instantiate builds new nodes from pattern" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let subst = Subst({ "x": a, "y": b })
   let result = eg.instantiate(Pat::parse("(Add ?x ?y)"), subst)
   let expected = eg.add(Add(a, b))
-  assert_eq(eg.find(result), eg.find(expected))
+  @debug.assert_eq(eg.find(result), eg.find(expected))
 }
 
 // ── Rewrite rule tests ──
@@ -403,17 +433,22 @@ test "instantiate builds new nodes from pattern" {
 ///|
 test "rewrite constructor parses lhs and rhs" {
   let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
-  inspect(rw.name, content="add-zero")
-  inspect(
+  debug_inspect(
+    rw.name,
+    content=(
+      #|"add-zero"
+    ),
+  )
+  debug_inspect(
     rw.lhs,
     content="Node(\"Add\", None, [Var(\"x\"), Node(\"Num\", Some(\"0\"), [])])",
   )
-  inspect(rw.rhs, content="Var(\"x\")")
+  debug_inspect(rw.rhs, content="Var(\"x\")")
 }
 
 ///|
 test "apply_rewrite: x + 0 → x merges e-classes" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let sum = eg.add(Add(a, zero))
@@ -421,27 +456,27 @@ test "apply_rewrite: x + 0 → x merges e-classes" {
   eg.apply_rewrite(rw) |> ignore
   eg.rebuild()
   // After rewrite: a + 0 should be equivalent to a
-  assert_eq(eg.find(sum), eg.find(a))
+  @debug.assert_eq(eg.find(sum), eg.find(a))
 }
 
 ///|
 test "apply_rewrite returns number of new unions" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let _ = eg.add(Add(a, zero))
   let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
   let applied = eg.apply_rewrite(rw)
-  assert_eq(applied, 1)
+  @debug.assert_eq(applied, 1)
   // Second application: already merged, no new unions
   eg.rebuild()
   let applied2 = eg.apply_rewrite(rw)
-  assert_eq(applied2, 0)
+  @debug.assert_eq(applied2, 0)
 }
 
 ///|
 test "conditional rewrite: condition false prevents application" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let sum = eg.add(Add(a, zero))
@@ -452,14 +487,14 @@ test "conditional rewrite: condition false prevents application" {
     condition: Some(fn(_subst) { false }),
   }
   let applied = eg.apply_rewrite(rw)
-  assert_eq(applied, 0)
+  @debug.assert_eq(applied, 0)
   // sum and a should NOT be merged
   assert_true(eg.find(sum) != eg.find(a))
 }
 
 ///|
 test "rule chaining: result of rule A enables rule B" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   // Build (Add (Add a 0) 0) — double addition of zero
@@ -470,17 +505,17 @@ test "rule chaining: result of rule A enables rule B" {
   eg.apply_rewrite(rw) |> ignore
   eg.rebuild()
   // inner == a after first rewrite
-  assert_eq(eg.find(inner), eg.find(a))
+  @debug.assert_eq(eg.find(inner), eg.find(a))
   // Second application after rebuild may find new matches
   eg.apply_rewrite(rw) |> ignore
   eg.rebuild()
   // outer should also be equivalent to a
-  assert_eq(eg.find(outer), eg.find(a))
+  @debug.assert_eq(eg.find(outer), eg.find(a))
 }
 
 ///|
 test "commutativity rule: Add is commutative" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let ab = eg.add(Add(a, b))
@@ -491,74 +526,74 @@ test "commutativity rule: Add is commutative" {
   eg.apply_rewrite(rw) |> ignore
   eg.rebuild()
   // After: a+b and b+a should be in the same e-class
-  assert_eq(eg.find(ab), eg.find(ba))
+  @debug.assert_eq(eg.find(ab), eg.find(ba))
 }
 
 // ── Extraction tests ──
 
 ///|
 test "extract single constant has cost 1" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(42))
   let (cost, expr) = eg.extract(a, ast_size())
-  assert_eq(cost, 1)
-  assert_eq(expr.root(), Num(42))
+  @debug.assert_eq(cost, 1)
+  @debug.assert_eq(expr.root(), Num(42))
 }
 
 ///|
 test "extract after x+0→x picks cheaper a over a+0" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let sum = eg.add(Add(a, zero))
   // Before rewrite: sum costs 3 (Add + Num(1) + Num(0))
   let (cost_before, expr_before) = eg.extract(sum, ast_size())
-  assert_eq(cost_before, 3)
-  assert_eq(expr_before.root(), Add(Id(0), Id(1)))
+  @debug.assert_eq(cost_before, 3)
+  @debug.assert_eq(expr_before.root(), Add(Id(0), Id(1)))
   // Apply rewrite: x + 0 → x
   let rw = rewrite("add-zero", "(Add ?x (Num:0))", "?x")
   eg.apply_rewrite(rw) |> ignore
   eg.rebuild()
   // After rewrite: sum's e-class now includes Num(1), cost 1
   let (cost_after, expr_after) = eg.extract(sum, ast_size())
-  assert_eq(cost_after, 1)
-  assert_eq(expr_after.root(), Num(1))
+  @debug.assert_eq(cost_after, 1)
+  @debug.assert_eq(expr_after.root(), Num(1))
 }
 
 ///|
 test "extract compound expression reconstructs tree" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let sum = eg.add(Add(a, b))
   let (cost, expr) = eg.extract(sum, ast_size())
-  assert_eq(cost, 3) // Add(1) + Num(1) + Num(1) = 3
+  @debug.assert_eq(cost, 3) // Add(1) + Num(1) + Num(1) = 3
   // Root should be Add with children pointing into the array
-  assert_eq(expr.nodes.length(), 3)
-  assert_eq(expr.root(), Add(Id(0), Id(1)))
-  assert_eq(expr.nodes[0], Num(1))
-  assert_eq(expr.nodes[1], Num(2))
+  @debug.assert_eq(expr.nodes.length(), 3)
+  @debug.assert_eq(expr.root(), Add(Id(0), Id(1)))
+  @debug.assert_eq(expr.nodes[0], Num(1))
+  @debug.assert_eq(expr.nodes[1], Num(2))
 }
 
 ///|
 test "extract shares DAG: same e-class reused" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let sum = eg.add(Add(a, a))
   let (cost, expr) = eg.extract(sum, ast_size())
   // Add(a, a): cost = 1 + 1 + 1 = 3? No — both children are same e-class
   // With DAG sharing in RecExpr, Num(1) appears once, Add refs it twice
-  assert_eq(cost, 3) // cost function counts both children
-  assert_eq(expr.nodes.length(), 2) // Num(1) and Add(Id(0), Id(0))
-  assert_eq(expr.nodes[0], Num(1))
-  assert_eq(expr.root(), Add(Id(0), Id(0)))
+  @debug.assert_eq(cost, 3) // cost function counts both children
+  @debug.assert_eq(expr.nodes.length(), 2) // Num(1) and Add(Id(0), Id(0))
+  @debug.assert_eq(expr.nodes[0], Num(1))
+  @debug.assert_eq(expr.root(), Add(Id(0), Id(0)))
 }
 
 // ── Runner tests ──
 
 ///|
 test "runner reaches saturation with simple rules" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let sum = eg.add(Add(a, zero))
@@ -566,14 +601,14 @@ test "runner reaches saturation with simple rules" {
   let runner = Runner::new(eg, roots=[sum])
   let reason = runner.run(rules)
   // Simple rule should reach saturation quickly
-  assert_eq(reason, Saturated)
+  @debug.assert_eq(reason, Saturated)
   // After saturation, sum and a are equivalent
-  assert_eq(runner.egraph.find(sum), runner.egraph.find(a))
+  @debug.assert_eq(runner.egraph.find(sum), runner.egraph.find(a))
 }
 
 ///|
 test "runner stops at iter_limit" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   // Build (Add (Add a 0) 0) — needs 2 iterations to fully simplify
@@ -583,12 +618,12 @@ test "runner stops at iter_limit" {
   // iter_limit=1 stops before full simplification
   let runner = Runner::new(eg, iter_limit=1)
   let reason = runner.run(rules)
-  assert_eq(reason, IterLimit)
+  @debug.assert_eq(reason, IterLimit)
 }
 
 ///|
 test "runner stops at node_limit" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let _ = eg.add(Add(a, b))
@@ -601,12 +636,12 @@ test "runner stops at node_limit" {
   // Very low node limit — will be exceeded quickly
   let runner = Runner::new(eg, node_limit=10)
   let reason = runner.run(rules)
-  assert_eq(reason, NodeLimit)
+  @debug.assert_eq(reason, NodeLimit)
 }
 
 ///|
 test "runner + extraction: (a+0)+0 simplifies to a" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let inner = eg.add(Add(a, zero))
@@ -614,16 +649,16 @@ test "runner + extraction: (a+0)+0 simplifies to a" {
   let rules = [rewrite("add-zero", "(Add ?x (Num:0))", "?x")]
   let runner = Runner::new(eg, roots=[outer])
   let reason = runner.run(rules)
-  assert_eq(reason, Saturated)
+  @debug.assert_eq(reason, Saturated)
   // Extract from the root — should get Num(1), cost 1
   let (cost, expr) = runner.egraph.extract(outer, ast_size())
-  assert_eq(cost, 1)
-  assert_eq(expr.root(), Num(1))
+  @debug.assert_eq(cost, 1)
+  @debug.assert_eq(expr.root(), Num(1))
 }
 
 ///|
 test "runner with multiple rules: (a*2)/2 simplifies" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(5))
   let zero = eg.add(Num(0))
   // Build a + 0
@@ -636,19 +671,19 @@ test "runner with multiple rules: (a*2)/2 simplifies" {
   ]
   let runner = Runner::new(eg, roots=[sum, sum2])
   let reason = runner.run(rules)
-  assert_eq(reason, Saturated)
+  @debug.assert_eq(reason, Saturated)
   // Both should be equivalent to a
-  assert_eq(runner.egraph.find(sum), runner.egraph.find(a))
-  assert_eq(runner.egraph.find(sum2), runner.egraph.find(a))
+  @debug.assert_eq(runner.egraph.find(sum), runner.egraph.find(a))
+  @debug.assert_eq(runner.egraph.find(sum2), runner.egraph.find(a))
   // Extraction gives cheapest
   let (cost, expr) = runner.egraph.extract(sum, ast_size())
-  assert_eq(cost, 1)
-  assert_eq(expr.root(), Num(5))
+  @debug.assert_eq(cost, 1)
+  @debug.assert_eq(expr.root(), Num(5))
 }
 
 ///|
 test "runner: commutativity saturates for single expression" {
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let ab = eg.add(Add(a, b))
@@ -656,10 +691,10 @@ test "runner: commutativity saturates for single expression" {
   let runner = Runner::new(eg, roots=[ab])
   let reason = runner.run(rules)
   // Commutativity for a single Add saturates: a+b ↔ b+a merge, then no new matches
-  assert_eq(reason, Saturated)
+  @debug.assert_eq(reason, Saturated)
   // a+b and b+a should now be in the same e-class
   let ba = runner.egraph.add(Add(b, a))
-  assert_eq(runner.egraph.find(ab), runner.egraph.find(ba))
+  @debug.assert_eq(runner.egraph.find(ab), runner.egraph.find(ba))
 }
 
 // ── Analysis tests (Step 8) ──
@@ -699,14 +734,14 @@ test "analysis: simple constant folding with TestLang" {
       }
     },
   }
-  let eg = AnalyzedEGraph::new(analysis)
+  let eg = AnalyzedEGraph::AnalyzedEGraph(analysis)
   let a = eg.add(Num(3))
   let b = eg.add(Num(4))
   let sum = eg.add(Add(a, b))
-  assert_eq(eg.get_data(sum), Some(7))
+  @debug.assert_eq(eg.get_data(sum), Some(7))
   eg.rebuild()
   let seven = eg.add(Num(7))
-  assert_eq(eg.find(sum), eg.find(seven))
+  @debug.assert_eq(eg.find(sum), eg.find(seven))
 }
 
 ///|
@@ -744,7 +779,7 @@ test "analysis: data decrease propagates through depth-2 chain" {
     },
     modify: fn(_eg, _id) {  },
   }
-  let eg = AnalyzedEGraph::new(analysis)
+  let eg = AnalyzedEGraph::AnalyzedEGraph(analysis)
   // C = Add(B, X) where B = Add(Y, Z): depth-2 chain
   let y = eg.add(Num(1))
   let z = eg.add(Num(2))
@@ -752,17 +787,17 @@ test "analysis: data decrease propagates through depth-2 chain" {
   let x = eg.add(Num(5))
   let c = eg.add(Add(b, x)) // Some(8)
   eg.rebuild()
-  assert_eq(eg.get_data(c), Some(8))
+  @debug.assert_eq(eg.get_data(c), Some(8))
   // Union Y with a conflicting constant. canonicalize_data sets Y=None.
   // recompute_data pass 1: B sees Y=None → B becomes None (decrease).
   // Pass 2 must then propagate None to C.
   let n99 = eg.add(Num(99))
   eg.union(y, n99) |> ignore
   eg.rebuild()
-  assert_eq(eg.get_data(eg.find(y)), None)
-  assert_eq(eg.get_data(eg.find(b)), None)
+  @debug.assert_eq(eg.get_data(eg.find(y)), None)
+  @debug.assert_eq(eg.get_data(eg.find(b)), None)
   // Without the fix, C stays Some(8). With the fix, C correctly becomes None.
-  assert_eq(eg.get_data(eg.find(c)), None)
+  @debug.assert_eq(eg.get_data(eg.find(c)), None)
 }
 
 ///|
@@ -777,16 +812,16 @@ test "many unions converge to single root" {
   }
   let root = uf.find(ids[0])
   for i = 0; i < 10; i = i + 1 {
-    assert_eq(uf.find(ids[i]), root)
+    @debug.assert_eq(uf.find(ids[i]), root)
   }
 }
 
 ///|
 test "DidMerge: helpers produce correct flags" {
-  assert_eq(DidMerge::both(), { a_changed: true, b_changed: true })
-  assert_eq(DidMerge::a_only(), { a_changed: true, b_changed: false })
-  assert_eq(DidMerge::b_only(), { a_changed: false, b_changed: true })
-  assert_eq(DidMerge::neither(), { a_changed: false, b_changed: false })
+  @debug.assert_eq(DidMerge::both(), { a_changed: true, b_changed: true })
+  @debug.assert_eq(DidMerge::a_only(), { a_changed: true, b_changed: false })
+  @debug.assert_eq(DidMerge::b_only(), { a_changed: false, b_changed: true })
+  @debug.assert_eq(DidMerge::neither(), { a_changed: false, b_changed: false })
   assert_true(DidMerge::both().changed())
   assert_true(DidMerge::a_only().changed())
   assert_true(DidMerge::b_only().changed())
@@ -806,30 +841,30 @@ test "DidMerge: Int? merge flags — stable, one-sided, conflict" {
 
   // Both None — neither changes
   let (r1, dm1) = merge(None, None)
-  assert_eq(r1, None)
-  assert_eq(dm1, DidMerge::neither())
+  @debug.assert_eq(r1, None)
+  @debug.assert_eq(dm1, DidMerge::neither())
 
   // Same value — neither changes
   let (r2, dm2) = merge(Some(5), Some(5))
-  assert_eq(r2, Some(5))
-  assert_eq(dm2, DidMerge::neither())
+  @debug.assert_eq(r2, Some(5))
+  @debug.assert_eq(dm2, DidMerge::neither())
 
   // One-sided: b gains information
   let (r3, dm3) = merge(Some(3), None)
-  assert_eq(r3, Some(3))
-  assert_eq(dm3.a_changed, false)
-  assert_eq(dm3.b_changed, true)
+  @debug.assert_eq(r3, Some(3))
+  @debug.assert_eq(dm3.a_changed, false)
+  @debug.assert_eq(dm3.b_changed, true)
 
   // One-sided: a gains information
   let (r4, dm4) = merge(None, Some(7))
-  assert_eq(r4, Some(7))
-  assert_eq(dm4.a_changed, true)
-  assert_eq(dm4.b_changed, false)
+  @debug.assert_eq(r4, Some(7))
+  @debug.assert_eq(dm4.a_changed, true)
+  @debug.assert_eq(dm4.b_changed, false)
 
   // Conflict — both sides lose their value
   let (r5, dm5) = merge(Some(1), Some(2))
-  assert_eq(r5, None)
-  assert_eq(dm5, DidMerge::both())
+  @debug.assert_eq(r5, None)
+  @debug.assert_eq(dm5, DidMerge::both())
 }
 
 // ── BackoffScheduler tests ──
@@ -837,7 +872,7 @@ test "DidMerge: Int? merge flags — stable, one-sided, conflict" {
 ///|
 test "BackoffScheduler: same result as Runner for well-behaved rules" {
   // Build e-graph with x + 0 and 0 + x
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let zero = eg.add(Num(0))
   let sum = eg.add(Add(a, zero))
@@ -851,14 +886,14 @@ test "BackoffScheduler: same result as Runner for well-behaved rules" {
   let sched = BackoffScheduler::new()
   let reason = sched.run(eg, rules)
   // Well-behaved rules should reach saturation
-  assert_eq(reason, Saturated)
+  @debug.assert_eq(reason, Saturated)
   // After saturation, sum and sum2 are equivalent to a
-  assert_eq(eg.find(sum), eg.find(a))
-  assert_eq(eg.find(sum2), eg.find(a))
+  @debug.assert_eq(eg.find(sum), eg.find(a))
+  @debug.assert_eq(eg.find(sum2), eg.find(a))
   // Extraction gives cheapest result
   let (cost, expr) = eg.extract(sum, ast_size())
-  assert_eq(cost, 1)
-  assert_eq(expr.root(), Num(1))
+  @debug.assert_eq(cost, 1)
+  @debug.assert_eq(expr.root(), Num(1))
 }
 
 ///|
@@ -887,7 +922,7 @@ test "BackoffScheduler: ban tracking" {
 ///|
 test "BackoffScheduler: caps explosive commutativity rule" {
   // Build an e-graph with several Add nodes to give commutativity room to fire
-  let eg : EGraph[TestLang] = EGraph::new()
+  let eg : EGraph[TestLang] = EGraph::EGraph()
   let a = eg.add(Num(1))
   let b = eg.add(Num(2))
   let c = eg.add(Num(3))
@@ -901,7 +936,7 @@ test "BackoffScheduler: caps explosive commutativity rule" {
   let sched = BackoffScheduler::new(match_limit=5)
   let reason = sched.run(eg, rules, iter_limit=30, node_limit=10_000)
   // Should reach saturation (not IterLimit or NodeLimit)
-  assert_eq(reason, Saturated)
+  @debug.assert_eq(reason, Saturated)
   // E-graph size should remain manageable (not blow up exponentially)
   let size_after = eg.size()
   assert_true(size_after >= size_before)

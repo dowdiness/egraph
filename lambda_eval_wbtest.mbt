@@ -1,8 +1,8 @@
 ///|
 test "term_to_egraph: Int(42) produces a graph with 1 node" {
   let (eg, root) = term_to_egraph(@ast.Term::Int(42))
-  assert_eq(eg.find(root), root)
-  assert_eq(eg.size(), 1)
+  @debug.assert_eq(eg.find(root), root)
+  @debug.assert_eq(eg.size(), 1)
 }
 
 ///|
@@ -10,15 +10,15 @@ test "term_to_egraph: Lam builds graph with 2 nodes" {
   let term = @ast.Term::Lam("x", @ast.Term::Var("x"))
   let (eg, root) = term_to_egraph(term)
   // Var("x") node + Lam("x", var_id) node
-  assert_eq(eg.size(), 2)
-  assert_eq(eg.find(root), root)
+  @debug.assert_eq(eg.size(), 2)
+  @debug.assert_eq(eg.find(root), root)
 }
 
 ///|
 /// Convert a lambda calculus Term to an EGraph.
 /// Returns the graph and the root e-class Id.
 fn term_to_egraph(term : @ast.Term) -> (EGraph[LambdaLang], Id) {
-  let eg : EGraph[LambdaLang] = EGraph::new()
+  let eg : EGraph[LambdaLang] = EGraph::EGraph()
   let root = term_add(eg, term)
   (eg, root)
 }
@@ -362,7 +362,7 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
 
 ///|
 test "eval: make — FV for new variants" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let c_id = eg.add(LVar("c"))
   let x_id = eg.add(LVar("x"))
   let y_id = eg.add(LVar("y"))
@@ -385,70 +385,70 @@ test "eval: make — FV for new variants" {
 
 ///|
 test "eval: make — constant values for new literals" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let btrue = eg.add(LBool(true))
-  assert_eq(eg.get_data(btrue).val, Some(VBool(true)))
+  @debug.assert_eq(eg.get_data(btrue).val, Some(VBool(true)))
   let bfalse = eg.add(LBool(false))
-  assert_eq(eg.get_data(bfalse).val, Some(VBool(false)))
+  @debug.assert_eq(eg.get_data(bfalse).val, Some(VBool(false)))
   let zero = eg.add(LNum(0))
   let iszero_0 = eg.add(LIsZero(zero))
-  assert_eq(eg.get_data(iszero_0).val, Some(VBool(true)))
+  @debug.assert_eq(eg.get_data(iszero_0).val, Some(VBool(true)))
   let one = eg.add(LNum(1))
   let iszero_1 = eg.add(LIsZero(one))
-  assert_eq(eg.get_data(iszero_1).val, Some(VBool(false)))
+  @debug.assert_eq(eg.get_data(iszero_1).val, Some(VBool(false)))
   let five = eg.add(LNum(5))
   let three = eg.add(LNum(3))
   let minus_53 = eg.add(LMinus(five, three))
-  assert_eq(eg.get_data(minus_53).val, Some(VInt(2)))
+  @debug.assert_eq(eg.get_data(minus_53).val, Some(VInt(2)))
 }
 
 ///|
 test "eval: constant folding — 2 + 3 = 5 after rebuild" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let two = eg.add(LNum(2))
   let three = eg.add(LNum(3))
   let sum = eg.add(LAdd(two, three))
   eg.rebuild()
   let five = eg.add(LNum(5))
-  assert_eq(eg.find(sum), eg.find(five))
+  @debug.assert_eq(eg.find(sum), eg.find(five))
 }
 
 ///|
 test "eval: constant folding — 5 - 3 = 2 after rebuild" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let five = eg.add(LNum(5))
   let three = eg.add(LNum(3))
   let diff = eg.add(LMinus(five, three))
   eg.rebuild()
   let two = eg.add(LNum(2))
-  assert_eq(eg.find(diff), eg.find(two))
+  @debug.assert_eq(eg.find(diff), eg.find(two))
 }
 
 ///|
 test "eval: IsZero(0) folds to LBool(true) after rebuild" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let zero = eg.add(LNum(0))
   let iszero = eg.add(LIsZero(zero))
   eg.rebuild()
   let btrue = eg.add(LBool(true))
-  assert_eq(eg.find(iszero), eg.find(btrue))
+  @debug.assert_eq(eg.find(iszero), eg.find(btrue))
 }
 
 ///|
 test "eval: if IsZero(0) then 1 else 2 = 1 after rebuild" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let zero = eg.add(LNum(0))
   let iszero = eg.add(LIsZero(zero))
   let one = eg.add(LNum(1))
   let two = eg.add(LNum(2))
   let if_expr = eg.add(LIf(iszero, one, two))
   eg.rebuild()
-  assert_eq(eg.find(if_expr), eg.find(one))
+  @debug.assert_eq(eg.find(if_expr), eg.find(one))
 }
 
 ///|
 test "eval: beta reduction — (λx. x + 1) 5 = 6" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let x = eg.add(LVar("x"))
   let one = eg.add(LNum(1))
   let body = eg.add(LAdd(x, one))
@@ -457,12 +457,12 @@ test "eval: beta reduction — (λx. x + 1) 5 = 6" {
   let app = eg.add(LApp(lam, five))
   eg.rebuild()
   let six = eg.add(LNum(6))
-  assert_eq(eg.find(app), eg.find(six))
+  @debug.assert_eq(eg.find(app), eg.find(six))
 }
 
 ///|
 test "eval: (λx. λy. x + y) 2 3 = 5 (two beta steps)" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let x = eg.add(LVar("x"))
   let y = eg.add(LVar("y"))
   let add_xy = eg.add(LAdd(x, y))
@@ -474,24 +474,24 @@ test "eval: (λx. λy. x + y) 2 3 = 5 (two beta steps)" {
   let app2 = eg.add(LApp(app1, three))
   eg.rebuild()
   let five = eg.add(LNum(5))
-  assert_eq(eg.find(app2), eg.find(five))
+  @debug.assert_eq(eg.find(app2), eg.find(five))
 }
 
 ///|
 test "eval: let x = 2 in x + x = 4" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let two = eg.add(LNum(2))
   let x = eg.add(LVar("x"))
   let body = eg.add(LAdd(x, x))
   let let_expr = eg.add(LLet("x", two, body))
   eg.rebuild()
   let four = eg.add(LNum(4))
-  assert_eq(eg.find(let_expr), eg.find(four))
+  @debug.assert_eq(eg.find(let_expr), eg.find(four))
 }
 
 ///|
 test "eval: (λy. λx. y) x leaves unreduced LSubst in extracted term (capture)" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let x_free = eg.add(LVar("x"))
   let y_var = eg.add(LVar("y"))
   let inner_lam = eg.add(LLam("x", y_var))
@@ -511,7 +511,7 @@ test "eval: (λy. λx. y) x leaves unreduced LSubst in extracted term (capture)"
 
 ///|
 test "eval integration: (2 + 3) * (4 - 1) = 15" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let two = eg.add(LNum(2))
   let three = eg.add(LNum(3))
   let four = eg.add(LNum(4))
@@ -521,24 +521,24 @@ test "eval integration: (2 + 3) * (4 - 1) = 15" {
   let prod = eg.add(LMul(sum, diff))
   eg.rebuild()
   let (cost, expr) = eg.extract(prod, ast_size())
-  assert_eq(cost, 1)
-  assert_eq(expr.root(), LNum(15))
+  @debug.assert_eq(cost, 1)
+  @debug.assert_eq(expr.root(), LNum(15))
 }
 
 ///|
 test "eval integration: if IsZero(1) then 1 else 2 = 2" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let one = eg.add(LNum(1))
   let two = eg.add(LNum(2))
   let iszero = eg.add(LIsZero(one))
   let if_expr = eg.add(LIf(iszero, one, two))
   eg.rebuild()
-  assert_eq(eg.find(if_expr), eg.find(two))
+  @debug.assert_eq(eg.find(if_expr), eg.find(two))
 }
 
 ///|
 test "eval integration: (λx. x * 0) 42 = 0 (beta + constant fold)" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let x = eg.add(LVar("x"))
   let zero = eg.add(LNum(0))
   let body = eg.add(LMul(x, zero))
@@ -547,16 +547,16 @@ test "eval integration: (λx. x * 0) 42 = 0 (beta + constant fold)" {
   let app = eg.add(LApp(lam, n42))
   eg.rebuild()
   let (cost, expr) = eg.extract(app, ast_size())
-  assert_eq(cost, 1)
-  assert_eq(expr.root(), LNum(0))
+  @debug.assert_eq(cost, 1)
+  @debug.assert_eq(expr.root(), LNum(0))
 }
 
 ///|
 test "eval integration: variable has no constant value" {
-  let eg = AnalyzedEGraph::new(subst_and_eval_analysis())
+  let eg = AnalyzedEGraph::AnalyzedEGraph(subst_and_eval_analysis())
   let x = eg.add(LVar("x"))
-  assert_eq(eg.get_data(x).val, None)
+  @debug.assert_eq(eg.get_data(x).val, None)
   let three = eg.add(LNum(3))
   let sum = eg.add(LAdd(x, three))
-  assert_eq(eg.get_data(sum).val, None)
+  @debug.assert_eq(eg.get_data(sum).val, None)
 }

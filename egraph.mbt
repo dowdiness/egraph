@@ -58,12 +58,10 @@ type Rank = Int
 priv struct UnionFind {
   parents : Array[Id]
   ranks : Array[Rank]
-
-  fn new() -> UnionFind
 } derive(Default, Debug)
 
 ///|
-fn UnionFind::new() -> UnionFind {
+fn UnionFind::UnionFind() -> UnionFind {
   UnionFind::default()
 }
 
@@ -285,7 +283,7 @@ fn parse_pat(chars : Array[Char], pos : Int) -> (Pat, Int) raise Error {
     if i == start {
       raise Failure::Failure("expected variable name after '?'")
     }
-    let name = String::from_array(chars[start:i].to_array())
+    let name = String::from_array(chars[start:i].to_owned())
     (Var(name), i)
   } else if chars[i] == '(' {
     // Node: (op pat*)
@@ -299,7 +297,7 @@ fn parse_pat(chars : Array[Char], pos : Int) -> (Pat, Int) raise Error {
     if i == op_start {
       raise Failure::Failure("expected operator name")
     }
-    let op_token = String::from_array(chars[op_start:i].to_array())
+    let op_token = String::from_array(chars[op_start:i].to_owned())
     let (tag, payload) = split_at_colon(op_token)
     // Read children
     let children : Array[Pat] = []
@@ -323,7 +321,7 @@ fn parse_pat(chars : Array[Char], pos : Int) -> (Pat, Int) raise Error {
     if i == start {
       raise Failure::Failure("expected identifier")
     }
-    let token = String::from_array(chars[start:i].to_array())
+    let token = String::from_array(chars[start:i].to_owned())
     let (tag, payload) = split_at_colon(token)
     (Node(tag, payload, []), i)
   }
@@ -343,8 +341,8 @@ fn split_at_colon(s : String) -> (String, String?) {
   if colon_idx < 0 {
     (s, None)
   } else {
-    let tag = String::from_array(chars[:colon_idx].to_array())
-    let payload = String::from_array(chars[colon_idx + 1:].to_array())
+    let tag = String::from_array(chars[:colon_idx].to_owned())
+    let payload = String::from_array(chars[colon_idx + 1:].to_owned())
     (tag, Some(payload))
   }
 }
@@ -399,12 +397,11 @@ pub struct EGraph[L] {
   classes : Map[Id, EClass[L]]
   priv memo : Map[L, Id]
   priv pending : Array[Id]
-
-  fn[L : Hash + Eq] new() -> EGraph[L]
 }
 
 ///|
-pub fn[L : Hash + Eq] EGraph::new() -> EGraph[L] {
+#alias(new, deprecated="Use EGraph::EGraph() instead")
+pub fn[L : Hash + Eq] EGraph::EGraph() -> EGraph[L] {
   { uf: UnionFind(), classes: {}, memo: {}, pending: [] }
 }
 
@@ -1232,10 +1229,11 @@ pub struct AnalyzedEGraph[L, D] {
 }
 
 ///|
-pub fn[L : Hash + Eq, D] AnalyzedEGraph::new(
+#alias(new, deprecated="Use AnalyzedEGraph::AnalyzedEGraph(analysis) instead")
+pub fn[L : Hash + Eq, D] AnalyzedEGraph::AnalyzedEGraph(
   analysis : Analysis[L, D],
 ) -> AnalyzedEGraph[L, D] {
-  { egraph: EGraph::new(), analysis, data: {}, scratch: {} }
+  { egraph: EGraph::EGraph(), analysis, data: {}, scratch: {} }
 }
 
 ///|
