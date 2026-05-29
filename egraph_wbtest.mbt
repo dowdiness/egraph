@@ -7,12 +7,12 @@ priv enum TestLang {
 } derive(Eq, Hash, Debug)
 
 ///|
-impl Show for TestLang with output(self, logger) {
+impl Show for TestLang with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-impl ENode for TestLang with arity(self) {
+impl ENode for TestLang with fn arity(self) {
   match self {
     Num(_) => 0
     Add(_, _) => 2
@@ -20,7 +20,7 @@ impl ENode for TestLang with arity(self) {
 }
 
 ///|
-impl ENode for TestLang with child(self, i) {
+impl ENode for TestLang with fn child(self, i) {
   match self {
     Add(a, b) => if i == 0 { a } else { b }
     _ => abort("no children")
@@ -28,7 +28,7 @@ impl ENode for TestLang with child(self, i) {
 }
 
 ///|
-impl ENode for TestLang with map_children(self, f) {
+impl ENode for TestLang with fn map_children(self, f) {
   match self {
     Num(_) => self
     Add(a, b) => Add(f(a), f(b))
@@ -36,7 +36,7 @@ impl ENode for TestLang with map_children(self, f) {
 }
 
 ///|
-impl ENodeRepr for TestLang with op_tag(self) {
+impl ENodeRepr for TestLang with fn op_tag(self) {
   match self {
     Num(_) => "Num"
     Add(_, _) => "Add"
@@ -44,7 +44,7 @@ impl ENodeRepr for TestLang with op_tag(self) {
 }
 
 ///|
-impl ENodeRepr for TestLang with payload(self) {
+impl ENodeRepr for TestLang with fn payload(self) {
   match self {
     Num(n) => Some(n.to_string())
     _ => None
@@ -52,7 +52,7 @@ impl ENodeRepr for TestLang with payload(self) {
 }
 
 ///|
-impl ENodeRepr for TestLang with from_op(tag, payload, children) {
+impl ENodeRepr for TestLang with fn from_op(tag, payload, children) {
   match (tag, payload, children.length()) {
     ("Num", Some(s), 0) => Some(Num(@string.parse_int(s))) catch { _ => None }
     ("Add", None, 2) => Some(Add(children[0], children[1]))

@@ -14,12 +14,12 @@ pub enum LambdaLang {
 } derive(Eq, Hash, Debug)
 
 ///|
-pub impl Show for LambdaLang with output(self, logger) {
+pub impl Show for LambdaLang with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-pub impl @egraph.ENode for LambdaLang with arity(self) {
+pub impl @egraph.ENode for LambdaLang with fn arity(self) {
   match self {
     LNum(_) | LVar(_) => 0
     LLam(_, _) => 1
@@ -30,7 +30,7 @@ pub impl @egraph.ENode for LambdaLang with arity(self) {
 }
 
 ///|
-pub impl @egraph.ENode for LambdaLang with child(self, i) {
+pub impl @egraph.ENode for LambdaLang with fn child(self, i) {
   match self {
     LAdd(a, b) | LMinus(a, b) | LApp(a, b) => if i == 0 { a } else { b }
     LLam(_, body) => body
@@ -46,7 +46,7 @@ pub impl @egraph.ENode for LambdaLang with child(self, i) {
 }
 
 ///|
-pub impl @egraph.ENode for LambdaLang with map_children(self, f) {
+pub impl @egraph.ENode for LambdaLang with fn map_children(self, f) {
   match self {
     LNum(_) | LVar(_) => self
     LAdd(a, b) => LAdd(f(a), f(b))
@@ -60,7 +60,7 @@ pub impl @egraph.ENode for LambdaLang with map_children(self, f) {
 }
 
 ///|
-pub impl @egraph.ENodeRepr for LambdaLang with op_tag(self) {
+pub impl @egraph.ENodeRepr for LambdaLang with fn op_tag(self) {
   match self {
     LNum(_) => "Num"
     LVar(_) => "Var"
@@ -75,7 +75,7 @@ pub impl @egraph.ENodeRepr for LambdaLang with op_tag(self) {
 }
 
 ///|
-pub impl @egraph.ENodeRepr for LambdaLang with payload(self) {
+pub impl @egraph.ENodeRepr for LambdaLang with fn payload(self) {
   match self {
     LNum(n) => Some(n.to_string())
     LVar(name) | LLam(name, _) | LLet(name, _, _) | LSubst(name, _, _) =>
@@ -85,7 +85,11 @@ pub impl @egraph.ENodeRepr for LambdaLang with payload(self) {
 }
 
 ///|
-pub impl @egraph.ENodeRepr for LambdaLang with from_op(tag, payload, children) {
+pub impl @egraph.ENodeRepr for LambdaLang with fn from_op(
+  tag,
+  payload,
+  children,
+) {
   match (tag, payload, children.length()) {
     ("Num", Some(s), 0) => Some(LNum(@string.parse_int(s))) catch { _ => None }
     ("Var", Some(s), 0) => Some(LVar(s))

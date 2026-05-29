@@ -21,12 +21,12 @@ priv enum LambdaLang {
 } derive(Eq, Hash, Debug)
 
 ///|
-impl Show for LambdaLang with output(self, logger) {
+impl Show for LambdaLang with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
 ///|
-impl ENode for LambdaLang with arity(self) {
+impl ENode for LambdaLang with fn arity(self) {
   match self {
     LNum(_) | LVar(_) | LBool(_) => 0
     LLam(_, _) | LIsZero(_) => 1
@@ -37,7 +37,7 @@ impl ENode for LambdaLang with arity(self) {
 }
 
 ///|
-impl ENode for LambdaLang with child(self, i) {
+impl ENode for LambdaLang with fn child(self, i) {
   match self {
     LAdd(a, b) | LMul(a, b) | LApp(a, b) | LMinus(a, b) =>
       if i == 0 {
@@ -58,7 +58,7 @@ impl ENode for LambdaLang with child(self, i) {
 }
 
 ///|
-impl ENode for LambdaLang with map_children(self, f) {
+impl ENode for LambdaLang with fn map_children(self, f) {
   match self {
     LNum(_) | LVar(_) | LBool(_) => self
     LAdd(a, b) => LAdd(f(a), f(b))
@@ -74,7 +74,7 @@ impl ENode for LambdaLang with map_children(self, f) {
 }
 
 ///|
-impl ENodeRepr for LambdaLang with op_tag(self) {
+impl ENodeRepr for LambdaLang with fn op_tag(self) {
   match self {
     LNum(_) => "Num"
     LVar(_) => "Var"
@@ -92,7 +92,7 @@ impl ENodeRepr for LambdaLang with op_tag(self) {
 }
 
 ///|
-impl ENodeRepr for LambdaLang with payload(self) {
+impl ENodeRepr for LambdaLang with fn payload(self) {
   match self {
     LNum(n) => Some(n.to_string())
     LVar(name) => Some(name)
@@ -105,7 +105,7 @@ impl ENodeRepr for LambdaLang with payload(self) {
 }
 
 ///|
-impl ENodeRepr for LambdaLang with from_op(tag, payload, children) {
+impl ENodeRepr for LambdaLang with fn from_op(tag, payload, children) {
   match (tag, payload, children.length()) {
     ("Num", Some(s), 0) => Some(LNum(@string.parse_int(s))) catch { _ => None }
     ("Var", Some(s), 0) => Some(LVar(s))
