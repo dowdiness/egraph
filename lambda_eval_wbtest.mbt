@@ -79,7 +79,7 @@ enum ValLit {
 } derive(Eq, Debug)
 
 ///|
-impl Show for ValLit with output(self, logger) {
+impl Show for ValLit with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 

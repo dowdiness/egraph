@@ -30,7 +30,7 @@ pub(all) struct Id(Int) derive(Eq, Compare, Hash, Debug)
 
 ///|
 /// Domain-specific Show: display as just the integer for readability.
-pub impl Show for Id with output(self, logger) {
+pub impl Show for Id with fn output(self, logger) {
   let Id(i) = self
   logger.write_string(i.to_string())
 }
@@ -156,14 +156,14 @@ fn UnionFind::size(self : UnionFind) -> Int {
 /// Required: arity, child, map_children.
 /// Default: children (derived from arity + child).
 pub(open) trait ENode {
-  arity(Self) -> Int
-  child(Self, Int) -> Id
-  map_children(Self, (Id) -> Id) -> Self
-  children(Self) -> Array[Id] = _
+  fn arity(Self) -> Int
+  fn child(Self, Int) -> Id
+  fn map_children(Self, (Id) -> Id) -> Self
+  fn children(Self) -> Array[Id] = _
 }
 
 ///|
-impl ENode with children(self) {
+impl ENode with fn children(self) {
   let arr : Array[Id] = []
   for i = 0; i < self.arity(); i = i + 1 {
     arr.push(self.child(i))
@@ -195,14 +195,14 @@ impl ENode with children(self) {
 /// Required: op_tag, payload, from_op.
 /// Default: op_name (derived from op_tag + payload).
 pub(open) trait ENodeRepr {
-  op_tag(Self) -> String
-  payload(Self) -> String?
-  from_op(String, String?, Array[Id]) -> Self?
-  op_name(Self) -> String = _
+  fn op_tag(Self) -> String
+  fn payload(Self) -> String?
+  fn from_op(String, String?, Array[Id]) -> Self?
+  fn op_name(Self) -> String = _
 }
 
 ///|
-impl ENodeRepr with op_name(self) {
+impl ENodeRepr with fn op_name(self) {
   match self.payload() {
     Some(p) => "\{self.op_tag()}:\{p}"
     None => self.op_tag()
@@ -231,7 +231,7 @@ pub(all) enum Pat {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for Pat with output(self, logger) {
+pub impl Show for Pat with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -928,7 +928,7 @@ pub enum StopReason {
 } derive(Eq, Debug)
 
 ///|
-impl Show for StopReason with output(self, logger) {
+impl Show for StopReason with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
@@ -1159,7 +1159,7 @@ pub(all) struct DidMerge {
 } derive(Eq, Debug)
 
 ///|
-pub impl Show for DidMerge with output(self, logger) {
+pub impl Show for DidMerge with fn output(self, logger) {
   logger.write_string(@debug.to_string(self))
 }
 
