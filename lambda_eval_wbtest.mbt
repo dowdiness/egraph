@@ -55,6 +55,7 @@ fn term_add(eg : EGraph[LambdaLang], term : @ast.Term) -> Id {
       let ei = term_add(eg, e)
       eg.add(LIf(ci, ti, ei))
     }
+    @ast.Term::LetDef(_, init) => term_add(eg, init)
     @ast.Term::Module(defs, body) => {
       let body_id = term_add(eg, body)
       let mut result = body_id
