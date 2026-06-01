@@ -11,6 +11,9 @@
 /// analysis-driven constant folding + beta reduction. Returns the
 /// simplest equivalent term by AST size.
 pub fn optimize(term : @ast.Term) -> @ast.Term {
+  if term is @ast.Term::LetDef(name, init) {
+    return @ast.Term::LetDef(name, optimize(init))
+  }
   let analyzed = @egraph.AnalyzedEGraph::AnalyzedEGraph(eval_analysis())
   let root = analyzed_term_add(analyzed, term)
   analyzed.rebuild()
@@ -69,6 +72,7 @@ fn analyzed_term_add(
       let ei = analyzed_term_add(eg, e)
       eg.add(LIf(ci, ti, ei))
     }
+    LetDef(_, init) => analyzed_term_add(eg, init)
     Module(defs, body) => {
       let mut result = analyzed_term_add(eg, body)
       for i = defs.length() - 1; i >= 0; i = i - 1 {

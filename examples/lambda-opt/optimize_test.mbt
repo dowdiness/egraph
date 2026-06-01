@@ -46,6 +46,16 @@ test "optimize: beta reduction (λx. x + 1) 5 = 6" {
 }
 
 ///|
+test "optimize: standalone LetDef preserves row name and optimizes init" {
+  let term = @ast.Term::LetDef(
+    "x",
+    @ast.Term::Bop(Plus, @ast.Term::Int(2), @ast.Term::Int(3)),
+  )
+  let result = optimize(term)
+  inspect(result, content="LetDef(\"x\", Int(5))")
+}
+
+///|
 test "optimize: let binding preserved (let-inlining is future work)" {
   // Let-inlining requires LLet → LApp(LLam(...)) desugaring or
   // dedicated let-substitution rules. Currently the optimizer preserves
