@@ -213,7 +213,7 @@ fn apply_subst(
 fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
   {
     make: fn(node, get_data) {
-      let fv : @hashset.HashSet[String] = @hashset.new()
+      let fv : @hashset.HashSet[String] = @hashset.HashSet([])
       let mut val : ValLit? = None
       match node {
         LNum(n) => val = Some(VInt(n))
@@ -290,7 +290,7 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
       // Intersection: equivalent terms share the same semantic FV set.
       // Intersection is tighter than union and eliminates stale FV entries
       // left by unreduced LSubst nodes after they are unified with normal forms.
-      let fv : @hashset.HashSet[String] = @hashset.new()
+      let fv : @hashset.HashSet[String] = @hashset.HashSet([])
       for x in a.fv {
         if b.fv.contains(x) {
           fv.add(x)

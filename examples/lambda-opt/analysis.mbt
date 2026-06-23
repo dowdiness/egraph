@@ -100,7 +100,7 @@ fn apply_subst(
 pub fn eval_analysis() -> @egraph.Analysis[LambdaLang, EvalState] {
   {
     make: fn(node, get_data) {
-      let fv : @hashset.HashSet[String] = @hashset.new()
+      let fv : @hashset.HashSet[String] = @hashset.HashSet([])
       let mut val : Int? = None
       match node {
         LNum(n) => val = Some(n)
@@ -153,7 +153,7 @@ pub fn eval_analysis() -> @egraph.Analysis[LambdaLang, EvalState] {
       { fv, val }
     },
     merge: fn(a, b) {
-      let fv : @hashset.HashSet[String] = @hashset.new()
+      let fv : @hashset.HashSet[String] = @hashset.HashSet([])
       for x in a.fv {
         if b.fv.contains(x) {
           fv.add(x)
