@@ -502,7 +502,7 @@ pub fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
       let canonical_id = self.find(id)
       // Canonicalize and deduplicate nodes in this e-class
       let new_nodes : Array[L] = []
-      let seen : @hashset.HashSet[L] = @hashset.new()
+      let seen : @hashset.HashSet[L] = @hashset.HashSet([])
       for node in eclass.nodes {
         let canonical = node.map_children(child => self.find(child))
         if seen.add_and_check(canonical) {
@@ -635,7 +635,7 @@ pub fn[L : ENode + ENodeRepr] EGraph::search(
   pattern : Pat,
 ) -> Array[(Id, Subst)] {
   let results : Array[(Id, Subst)] = []
-  let visited : @hashset.HashSet[Id] = @hashset.new()
+  let visited : @hashset.HashSet[Id] = @hashset.HashSet([])
   for id, _ in self.classes {
     let canonical_id = self.find(id)
     if !visited.add_and_check(canonical_id) {
@@ -1321,7 +1321,7 @@ fn[L, D] AnalyzedEGraph::canonical_class_ids(
   self : AnalyzedEGraph[L, D],
 ) -> Array[Id] {
   let ids : Array[Id] = []
-  let seen : @hashset.HashSet[Id] = @hashset.new()
+  let seen : @hashset.HashSet[Id] = @hashset.HashSet([])
   for id, _ in self.egraph.classes {
     let canonical = self.find(id)
     if seen.add_and_check(canonical) {
