@@ -107,16 +107,16 @@ pub fn Subst::get(Self, String) -> Id?
 
 // Traits
 pub(open) trait ENode {
-  arity(Self) -> Int
-  child(Self, Int) -> Id
-  map_children(Self, (Id) -> Id) -> Self
-  children(Self) -> Array[Id] = _
+  fn arity(Self) -> Int
+  fn child(Self, Int) -> Id
+  fn map_children(Self, (Id) -> Id) -> Self
+  fn children(Self) -> Array[Id] = _
 }
 
 pub(open) trait ENodeRepr {
-  op_tag(Self) -> String
-  payload(Self) -> String?
-  from_op(String, String?, Array[Id]) -> Self?
-  op_name(Self) -> String = _
+  fn op_tag(Self) -> String
+  fn payload(Self) -> String?
+  fn from_op(String, String?, Array[Id]) -> Self?
+  fn op_name(Self) -> String = _
 }
 
