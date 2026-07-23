@@ -215,13 +215,13 @@ test "rebuild is idempotent when no pending work" {
 ///|
 test "op_tag returns operator without payload" {
   debug_inspect(
-    Num(42).op_tag(),
+    ENodeRepr::op_tag(Num(42)),
     content=(
       #|"Num"
     ),
   )
   debug_inspect(
-    Add(Id(0), Id(1)).op_tag(),
+    ENodeRepr::op_tag(Add(Id(0), Id(1))),
     content=(
       #|"Add"
     ),
@@ -230,20 +230,20 @@ test "op_tag returns operator without payload" {
 
 ///|
 test "payload returns encoded value" {
-  debug_inspect(Num(42).payload(), content="Some(\"42\")")
-  debug_inspect(Add(Id(0), Id(1)).payload(), content="None")
+  debug_inspect(ENodeRepr::payload(Num(42)), content="Some(\"42\")")
+  debug_inspect(ENodeRepr::payload(Add(Id(0), Id(1))), content="None")
 }
 
 ///|
 test "op_name derives from op_tag and payload" {
   debug_inspect(
-    Num(42).op_name(),
+    ENodeRepr::op_name(Num(42)),
     content=(
       #|"Num:42"
     ),
   )
   debug_inspect(
-    Add(Id(0), Id(1)).op_name(),
+    ENodeRepr::op_name(Add(Id(0), Id(1))),
     content=(
       #|"Add"
     ),
@@ -253,17 +253,21 @@ test "op_name derives from op_tag and payload" {
 ///|
 test "from_op round-trip for Num" {
   let node = Num(42)
-  let reconstructed = TestLang::from_op(node.op_tag(), node.payload(), [])
+  let reconstructed : TestLang? = ENodeRepr::from_op(
+    ENodeRepr::op_tag(node),
+    ENodeRepr::payload(node),
+    [],
+  )
   debug_inspect(reconstructed, content="Some(Num(42))")
 }
 
 ///|
 test "from_op round-trip for Add" {
   let node = Add(Id(0), Id(1))
-  let reconstructed = TestLang::from_op(
-    node.op_tag(),
-    node.payload(),
-    node.children(),
+  let reconstructed : TestLang? = ENodeRepr::from_op(
+    ENodeRepr::op_tag(node),
+    ENodeRepr::payload(node),
+    ENode::children(node),
   )
   debug_inspect(
     reconstructed,
@@ -275,13 +279,13 @@ test "from_op round-trip for Add" {
 
 ///|
 test "from_op rejects unknown op" {
-  let result = TestLang::from_op("Unknown", None, [])
+  let result : TestLang? = ENodeRepr::from_op("Unknown", None, [])
   debug_inspect(result, content="None")
 }
 
 ///|
 test "from_op rejects wrong arity" {
-  let result = TestLang::from_op("Add", None, [Id(0)])
+  let result : TestLang? = ENodeRepr::from_op("Add", None, [Id(0)])
   debug_inspect(result, content="None")
 }
 
@@ -332,7 +336,7 @@ test "panic parse rejects invalid token in child position" {
 ///|
 test "children derived from arity and child" {
   let node = Add(Id(0), Id(1))
-  let cs = node.children()
+  let cs = ENode::children(node)
   @debug.assert_eq(cs.length(), 2)
   @debug.assert_eq(cs[0], Id(0))
   @debug.assert_eq(cs[1], Id(1))
@@ -341,7 +345,7 @@ test "children derived from arity and child" {
 ///|
 test "children of leaf node is empty" {
   let node = Num(42)
-  @debug.assert_eq(node.children().length(), 0)
+  @debug.assert_eq(ENode::children(node).length(), 0)
 }
 
 // ── E-matching tests ──

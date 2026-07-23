@@ -269,7 +269,7 @@ test "lambda: LambdaLang ENodeRepr round-trip" {
   ]
   for c in cases {
     let (expected, tag, payload, children) = c
-    let result = LambdaLang::from_op(tag, payload, children)
+    let result : LambdaLang? = ENodeRepr::from_op(tag, payload, children)
     @debug.assert_eq(result, Some(expected))
   }
 }
@@ -368,39 +368,42 @@ test "lambda: let-binding in e-graph preserves structure" {
 
 ///|
 test "lambda: from_op rejects unknown tag" {
-  let result = LambdaLang::from_op("Unknown", None, [])
+  let result : LambdaLang? = ENodeRepr::from_op("Unknown", None, [])
   @debug.assert_eq(result, None)
 }
 
 ///|
 test "lambda: from_op rejects wrong arity for Add" {
   // Add needs 2 children, not 1
-  let result = LambdaLang::from_op("Add", None, [Id(0)])
+  let result : LambdaLang? = ENodeRepr::from_op("Add", None, [Id(0)])
   @debug.assert_eq(result, None)
 }
 
 ///|
 test "lambda: from_op rejects wrong arity for Lam" {
   // Lam needs 1 child, not 0
-  let result = LambdaLang::from_op("Lam", Some("x"), [])
+  let result : LambdaLang? = ENodeRepr::from_op("Lam", Some("x"), [])
   @debug.assert_eq(result, None)
 }
 
 ///|
 test "lambda: from_op rejects Num with children" {
-  let result = LambdaLang::from_op("Num", Some("42"), [Id(0)])
+  let result : LambdaLang? = ENodeRepr::from_op("Num", Some("42"), [Id(0)])
   @debug.assert_eq(result, None)
 }
 
 ///|
 test "lambda: from_op rejects Num without payload" {
-  let result = LambdaLang::from_op("Num", None, [])
+  let result : LambdaLang? = ENodeRepr::from_op("Num", None, [])
   @debug.assert_eq(result, None)
 }
 
 ///|
 test "lambda: from_op rejects Add with payload" {
-  let result = LambdaLang::from_op("Add", Some("extra"), [Id(0), Id(1)])
+  let result : LambdaLang? = ENodeRepr::from_op("Add", Some("extra"), [
+    Id(0),
+    Id(1),
+  ])
   @debug.assert_eq(result, None)
 }
 
@@ -470,7 +473,7 @@ test "lambda: conditional rewrite blocks application" {
 ///|
 test "lambda: from_op with invalid Num payload returns None" {
   // Non-numeric payload for Num returns None (caught by try/catch in from_op)
-  let result = LambdaLang::from_op("Num", Some("not_a_number"), [])
+  let result : LambdaLang? = ENodeRepr::from_op("Num", Some("not_a_number"), [])
   @debug.assert_eq(result, None)
 }
 
@@ -486,7 +489,7 @@ test "lambda: new variant ENodeRepr round-trip" {
   ]
   for c in cases {
     let (expected, tag, payload, children) = c
-    let result = LambdaLang::from_op(tag, payload, children)
+    let result : LambdaLang? = ENodeRepr::from_op(tag, payload, children)
     @debug.assert_eq(result, Some(expected))
   }
 }

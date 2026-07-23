@@ -62,7 +62,7 @@ priv struct UnionFind {
 
 ///|
 fn UnionFind::UnionFind() -> UnionFind {
-  UnionFind::default()
+  Default::default()
 }
 
 ///|
@@ -402,7 +402,7 @@ pub struct EGraph[L] {
 ///|
 #alias(new, deprecated="Use EGraph::EGraph() instead")
 pub fn[L : Hash + Eq] EGraph::EGraph() -> EGraph[L] {
-  { uf: UnionFind(), classes: {}, memo: {}, pending: [] }
+  { uf: UnionFind(), classes: Map([]), memo: Map([]), pending: [] }
 }
 
 ///|
@@ -435,7 +435,7 @@ pub fn[L] EGraph::size(self : EGraph[L]) -> Int {
 pub fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
   // Step 1: Canonicalize children so Add(x, y) and Add(find(x), find(y))
   //         map to the same memo entry.
-  let canonical = node.map_children(fn(child) { self.find(child) })
+  let canonical = ENode::map_children(node, fn(child) { self.find(child) })
   // Step 2: Check hashcons — have we seen this exact canonical node before?
   match self.memo.get(canonical) {
     Some(id) => self.find(id)
@@ -504,7 +504,7 @@ pub fn[L : ENode + Hash + Eq] EGraph::rebuild(self : EGraph[L]) -> Unit {
       let new_nodes : Array[L] = []
       let seen : @hashset.HashSet[L] = @hashset.HashSet([])
       for node in eclass.nodes {
-        let canonical = node.map_children(child => self.find(child))
+        let canonical = ENode::map_children(node, child => self.find(child))
         if seen.add_and_check(canonical) {
           new_nodes.push(canonical)
         }
@@ -560,7 +560,7 @@ pub fn[L : ENode + ENodeRepr] EGraph::ematch(
   match pattern {
     // A variable matches any e-class — just record the binding
     Var(name) => {
-      let subst : Map[String, Id] = {}
+      let subst : Map[String, Id] = Map([])
       subst[name] = canonical_id
       [Subst(subst)]
     }
@@ -572,15 +572,15 @@ pub fn[L : ENode + ENodeRepr] EGraph::ematch(
         Some(eclass) =>
           for node in eclass.nodes {
             // Check operator match: tag, payload, and arity must all agree
-            if node.op_tag() == tag &&
-              node.payload() == payload &&
-              node.arity() == child_pats.length() {
+            if ENodeRepr::op_tag(node) == tag &&
+              ENodeRepr::payload(node) == payload &&
+              ENode::arity(node) == child_pats.length() {
               // Match children left-to-right, threading substitutions through.
               // Start with one empty substitution; each child may multiply
               // or filter the set of valid substitutions.
-              let mut substs : Array[Subst] = [Subst({})]
+              let mut substs : Array[Subst] = [Subst(Map([]))]
               for i = 0; i < child_pats.length(); i = i + 1 {
-                let child_id = self.find(node.child(i))
+                let child_id = self.find(ENode::child(node, i))
                 let new_substs : Array[Subst] = []
                 for s in substs {
                   // Recursively match child pattern against child e-class
@@ -680,7 +680,7 @@ pub fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(
         child_ids.push(self.instantiate(child_pat, subst))
       }
       // Use from_op to construct the concrete language node from (tag, payload, children)
-      match L::from_op(tag, payload, child_ids) {
+      match ENodeRepr::from_op(tag, payload, child_ids) {
         Some(node) => self.add(node)
         None => abort("from_op failed for tag: \{tag}")
       }
@@ -823,8 +823,8 @@ pub fn[L : ENode] EGraph::extract(
   root : Id,
   cost_fn : CostFn[L],
 ) -> (Int, RecExpr[L]) {
-  let best_cost : Map[Id, Int] = {}
-  let best_node : Map[Id, L] = {}
+  let best_cost : Map[Id, Int] = Map([])
+  let best_node : Map[Id, L] = Map([])
   let max_cost = 1_000_000_000
   let CostFn(f) = cost_fn
   // Child cost lookup: children of canonical nodes are already canonical,
@@ -843,7 +843,7 @@ pub fn[L : ENode] EGraph::extract(
       let canonical_id = self.find(id)
       for node in eclass.nodes {
         // Canonicalize children for cost lookup
-        let canonical = node.map_children(fn(child) { self.find(child) })
+        let canonical = ENode::map_children(node, fn(child) { self.find(child) })
         let cost = f(canonical, child_cost)
         let current_best = match best_cost.get(canonical_id) {
           Some(c) => c
@@ -860,7 +860,7 @@ pub fn[L : ENode] EGraph::extract(
   // Reconstruct the optimal expression tree into a RecExpr
   let canonical_root = self.find(root)
   let rec_nodes : Array[L] = []
-  let id_to_idx : Map[Id, Id] = {}
+  let id_to_idx : Map[Id, Id] = Map([])
   reconstruct(best_node, canonical_root, rec_nodes, id_to_idx, self) |> ignore
   let final_cost = match best_cost.get(canonical_root) {
     Some(c) => c
@@ -1041,7 +1041,7 @@ priv struct BackoffScheduler {
 
 ///|
 fn BackoffScheduler::new(match_limit? : Int = 1000) -> BackoffScheduler {
-  { match_limit, stats: {} }
+  { match_limit, stats: Map([]) }
 }
 
 ///|
@@ -1233,7 +1233,7 @@ pub struct AnalyzedEGraph[L, D] {
 pub fn[L : Hash + Eq, D] AnalyzedEGraph::AnalyzedEGraph(
   analysis : Analysis[L, D],
 ) -> AnalyzedEGraph[L, D] {
-  { egraph: EGraph::EGraph(), analysis, data: {}, scratch: {} }
+  { egraph: EGraph::EGraph(), analysis, data: Map([]), scratch: Map([]) }
 }
 
 ///|
@@ -1484,7 +1484,7 @@ fn[L : ENodeRepr + ENode + Hash + Eq, D] AnalyzedEGraph::instantiate(
       for child_pat in child_pats {
         child_ids.push(self.instantiate(child_pat, subst))
       }
-      match L::from_op(tag, payload, child_ids) {
+      match ENodeRepr::from_op(tag, payload, child_ids) {
         Some(node) => self.add(node)
         None => abort("from_op failed for tag: \{tag}")
       }
