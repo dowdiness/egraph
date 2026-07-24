@@ -146,14 +146,14 @@ test "isolate: map alloc + populate + copy-back at 1000 entries" (b : @bench.T) 
   for i = 0; i < 1000; i = i + 1 {
     ids.push(Id(i))
   }
-  let store : Map[Id, Int?] = {}
+  let store : Map[Id, Int?] = Map([])
   for id in ids {
     store[id] = Some(id.0)
   }
   b.bench(fn() {
     // Old recompute_data pattern (pre-#26): alloc fresh map, populate,
     // clear the live map, copy entries back.
-    let next_data : Map[Id, Int?] = {}
+    let next_data : Map[Id, Int?] = Map([])
     for id in ids {
       next_data[id] = store[id]
     }
