@@ -402,7 +402,7 @@ pub struct EGraph[L] {
 ///|
 #alias(new, deprecated="Use EGraph::EGraph() instead")
 pub fn[L : Hash + Eq] EGraph::EGraph() -> EGraph[L] {
-  { uf: UnionFind(), classes: Map([]), memo: Map([]), pending: [] }
+  { uf: UnionFind(), classes: Map([]), memo: Map([]), pending: [], }
 }
 
 ///|
@@ -441,7 +441,7 @@ pub fn[L : ENode + Hash + Eq] EGraph::add(self : EGraph[L], node : L) -> Id {
     Some(id) => self.find(id)
     None => {
       let id = self.uf.make_set()
-      self.classes[id] = { nodes: [canonical] }
+      self.classes[id] = { nodes: [canonical], }
       self.memo[canonical] = id
       id
     }
@@ -716,7 +716,7 @@ pub fn rewrite(
   lhs : String,
   rhs : String,
 ) -> Rewrite raise Error {
-  { name, lhs: Pat::parse(lhs), rhs: Pat::parse(rhs), condition: None }
+  { name, lhs: Pat::parse(lhs), rhs: Pat::parse(rhs), condition: None, }
 }
 
 ///|
@@ -866,7 +866,7 @@ pub fn[L : ENode] EGraph::extract(
     Some(c) => c
     None => max_cost
   }
-  (final_cost, { nodes: rec_nodes })
+  (final_cost, { nodes: rec_nodes, })
 }
 
 ///|
@@ -954,7 +954,7 @@ pub fn[L] Runner::new(
   iter_limit? : Int = 30,
   node_limit? : Int = 10_000,
 ) -> Runner[L] {
-  { egraph, _roots: roots, iter_limit, node_limit }
+  { egraph, _roots: roots, iter_limit, node_limit, }
 }
 
 ///|
@@ -1041,7 +1041,7 @@ priv struct BackoffScheduler {
 
 ///|
 fn BackoffScheduler::new(match_limit? : Int = 1000) -> BackoffScheduler {
-  { match_limit, stats: Map([]) }
+  { match_limit, stats: Map([]), }
 }
 
 ///|
@@ -1071,7 +1071,7 @@ fn BackoffScheduler::did_search(
     let s = match self.stats.get(name) {
       Some(s) => s
       None => {
-        let fresh = { ban_length: 1, banned_until: 0 }
+        let fresh = { ban_length: 1, banned_until: 0, }
         self.stats[name] = fresh
         fresh
       }
@@ -1165,22 +1165,22 @@ pub impl Show for DidMerge with fn output(self, logger) {
 
 ///|
 pub fn DidMerge::both() -> DidMerge {
-  { a_changed: true, b_changed: true }
+  { a_changed: true, b_changed: true, }
 }
 
 ///|
 pub fn DidMerge::a_only() -> DidMerge {
-  { a_changed: true, b_changed: false }
+  { a_changed: true, b_changed: false, }
 }
 
 ///|
 pub fn DidMerge::b_only() -> DidMerge {
-  { a_changed: false, b_changed: true }
+  { a_changed: false, b_changed: true, }
 }
 
 ///|
 pub fn DidMerge::neither() -> DidMerge {
-  { a_changed: false, b_changed: false }
+  { a_changed: false, b_changed: false, }
 }
 
 ///|
@@ -1233,7 +1233,7 @@ pub struct AnalyzedEGraph[L, D] {
 pub fn[L : Hash + Eq, D] AnalyzedEGraph::AnalyzedEGraph(
   analysis : Analysis[L, D],
 ) -> AnalyzedEGraph[L, D] {
-  { egraph: EGraph::EGraph(), analysis, data: Map([]), scratch: Map([]) }
+  { egraph: EGraph::EGraph(), analysis, data: Map([]), scratch: Map([]), }
 }
 
 ///|
@@ -1525,3 +1525,45 @@ pub fn[L : ENode, D] AnalyzedEGraph::extract(
 ) -> (Int, RecExpr[L]) {
   self.egraph.extract(root, cost_fn)
 }
+
+///|
+pub extend Id with Eq::{not_equal, equal}
+
+///|
+pub extend Id with Compare::{op_lt, op_le, op_ge, compare, op_gt}
+
+///|
+pub extend Id with Hash::{hash, hash_combine}
+
+///|
+pub extend Id with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Id with Show::{to_string, output}
+
+///|
+pub extend Pat with Eq::{not_equal, equal}
+
+///|
+pub extend Pat with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend Pat with Show::{to_string, output}
+
+///|
+pub extend Subst with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend StopReason with Eq::{not_equal, equal}
+
+///|
+pub extend StopReason with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DidMerge with Eq::{not_equal, equal}
+
+///|
+pub extend DidMerge with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend DidMerge with Show::{to_string, output}
