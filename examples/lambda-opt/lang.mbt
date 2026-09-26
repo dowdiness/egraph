@@ -105,10 +105,20 @@ pub impl @egraph.ENodeRepr for LambdaLang with fn from_op(
 }
 
 ///|
-pub extend LambdaLang with @dowdiness/egraph.ENode::{arity, child, children, map_children}
+pub extend LambdaLang with @dowdiness/egraph.ENode::{
+  arity,
+  child,
+  children,
+  map_children,
+}
 
 ///|
-pub extend LambdaLang with @dowdiness/egraph.ENodeRepr::{from_op, op_name, op_tag, payload}
+pub extend LambdaLang with @dowdiness/egraph.ENodeRepr::{
+  from_op,
+  op_name,
+  op_tag,
+  payload,
+}
 
 ///|
 pub extend LambdaLang with @moonbitlang/core/debug.Debug::{to_repr}
