@@ -36,6 +36,21 @@ pub enum LambdaLang {
   LIf(@egraph.Id, @egraph.Id, @egraph.Id)
   LSubst(String, @egraph.Id, @egraph.Id)
 } derive(Eq, Hash, @debug.Debug)
+pub fn LambdaLang::arity(Self) -> Int
+pub fn LambdaLang::child(Self, Int) -> @egraph.Id
+pub fn LambdaLang::children(Self) -> Array[@egraph.Id]
+pub fn LambdaLang::equal(Self, Self) -> Bool
+pub fn LambdaLang::from_op(String, String?, Array[@egraph.Id]) -> Self?
+pub fn LambdaLang::hash(Self) -> Int
+pub fn LambdaLang::hash_combine(Self, Hasher) -> Unit
+pub fn LambdaLang::map_children(Self, (@egraph.Id) -> @egraph.Id) -> Self
+pub fn LambdaLang::not_equal(Self, Self) -> Bool
+pub fn LambdaLang::op_name(Self) -> String
+pub fn LambdaLang::op_tag(Self) -> String
+pub fn LambdaLang::output(Self, &Logger) -> Unit
+pub fn LambdaLang::payload(Self) -> String?
+pub fn LambdaLang::to_repr(Self) -> @debug.Repr
+pub fn LambdaLang::to_string(Self) -> String
 pub impl @egraph.ENode for LambdaLang
 pub impl @egraph.ENodeRepr for LambdaLang
 pub impl Show for LambdaLang
@@ -43,4 +58,3 @@ pub impl Show for LambdaLang
 // Type aliases
 
 // Traits
-
