@@ -726,7 +726,7 @@ test "analysis: simple constant folding with TestLang" {
       }
       let a_changed = a != result
       let b_changed = b != result
-      (result, { a_changed, b_changed })
+      (result, { a_changed, b_changed, })
     },
     modify: fn(eg, id) {
       match eg.get_data(id) {
@@ -779,7 +779,7 @@ test "analysis: data decrease propagates through depth-2 chain" {
         (Some(x), None) | (None, Some(x)) => Some(x)
         _ => None
       }
-      (result, { a_changed: a != result, b_changed: b != result })
+      (result, { a_changed: a != result, b_changed: b != result, })
     },
     modify: fn(_eg, _id) {  },
   }
@@ -822,10 +822,10 @@ test "many unions converge to single root" {
 
 ///|
 test "DidMerge: helpers produce correct flags" {
-  @debug.assert_eq(DidMerge::both(), { a_changed: true, b_changed: true })
-  @debug.assert_eq(DidMerge::a_only(), { a_changed: true, b_changed: false })
-  @debug.assert_eq(DidMerge::b_only(), { a_changed: false, b_changed: true })
-  @debug.assert_eq(DidMerge::neither(), { a_changed: false, b_changed: false })
+  @debug.assert_eq(DidMerge::both(), { a_changed: true, b_changed: true, })
+  @debug.assert_eq(DidMerge::a_only(), { a_changed: true, b_changed: false, })
+  @debug.assert_eq(DidMerge::b_only(), { a_changed: false, b_changed: true, })
+  @debug.assert_eq(DidMerge::neither(), { a_changed: false, b_changed: false, })
   assert_true(DidMerge::both().changed())
   assert_true(DidMerge::a_only().changed())
   assert_true(DidMerge::b_only().changed())
@@ -840,7 +840,7 @@ test "DidMerge: Int? merge flags — stable, one-sided, conflict" {
       (Some(x), None) | (None, Some(x)) => Some(x)
       _ => None
     }
-    (result, { a_changed: a != result, b_changed: b != result })
+    (result, { a_changed: a != result, b_changed: b != result, })
   }
 
   // Both None — neither changes

@@ -38,7 +38,7 @@ fn cf_analysis() -> Analysis[TestLang, Int?] {
         (Some(x), None) | (None, Some(x)) => Some(x)
         _ => None
       }
-      (result, { a_changed: a != result, b_changed: b != result })
+      (result, { a_changed: a != result, b_changed: b != result, })
     },
     modify: fn(eg, id) {
       match eg.get_data(id) {

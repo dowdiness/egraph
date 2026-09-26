@@ -43,7 +43,12 @@ pub fn DidMerge::a_only() -> Self
 pub fn DidMerge::b_only() -> Self
 pub fn DidMerge::both() -> Self
 pub fn DidMerge::changed(Self) -> Bool
+pub fn DidMerge::equal(Self, Self) -> Bool
 pub fn DidMerge::neither() -> Self
+pub fn DidMerge::not_equal(Self, Self) -> Bool
+pub fn DidMerge::output(Self, &Logger) -> Unit
+pub fn DidMerge::to_repr(Self) -> @debug.Repr
+pub fn DidMerge::to_string(Self) -> String
 pub impl Show for DidMerge
 
 pub struct EClass[L] {
@@ -69,13 +74,30 @@ pub fn[L] EGraph::size(Self[L]) -> Int
 pub fn[L] EGraph::union(Self[L], Id, Id) -> Id
 
 pub(all) struct Id(Int) derive(Compare, Eq, Hash, @debug.Debug)
+pub fn Id::compare(Self, Self) -> Int
+pub fn Id::equal(Self, Self) -> Bool
+pub fn Id::hash(Self) -> Int
+pub fn Id::hash_combine(Self, Hasher) -> Unit
+pub fn Id::not_equal(Self, Self) -> Bool
+pub fn Id::op_ge(Self, Self) -> Bool
+pub fn Id::op_gt(Self, Self) -> Bool
+pub fn Id::op_le(Self, Self) -> Bool
+pub fn Id::op_lt(Self, Self) -> Bool
+pub fn Id::output(Self, &Logger) -> Unit
+pub fn Id::to_repr(Self) -> @debug.Repr
+pub fn Id::to_string(Self) -> String
 pub impl Show for Id
 
 pub(all) enum Pat {
   Var(String)
   Node(String, String?, Array[Pat])
 } derive(Eq, @debug.Debug)
+pub fn Pat::equal(Self, Self) -> Bool
+pub fn Pat::not_equal(Self, Self) -> Bool
+pub fn Pat::output(Self, &Logger) -> Unit
 pub fn Pat::parse(String) -> Self raise
+pub fn Pat::to_repr(Self) -> @debug.Repr
+pub fn Pat::to_string(Self) -> String
 pub impl Show for Pat
 
 pub struct RecExpr[L] {
@@ -98,10 +120,14 @@ pub enum StopReason {
   IterLimit
   NodeLimit
 } derive(Eq, @debug.Debug)
+pub fn StopReason::equal(Self, Self) -> Bool
+pub fn StopReason::not_equal(Self, Self) -> Bool
+pub fn StopReason::to_repr(Self) -> @debug.Repr
 
 pub(all) struct Subst(Map[String, Id]) derive(@debug.Debug)
 #alias("_[_]")
 pub fn Subst::get(Self, String) -> Id?
+pub fn Subst::to_repr(Self) -> @debug.Repr
 
 // Type aliases
 
@@ -119,4 +145,3 @@ pub(open) trait ENodeRepr {
   fn from_op(String, String?, Array[Id]) -> Self?
   fn op_name(Self) -> String = _
 }
-

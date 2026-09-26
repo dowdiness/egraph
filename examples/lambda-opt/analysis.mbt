@@ -150,7 +150,7 @@ pub fn eval_analysis() -> @egraph.Analysis[LambdaLang, EvalState] {
           fv_union(fv, get_data(v).fv)
         }
       }
-      { fv, val }
+      { fv, val, }
     },
     merge: fn(a, b) {
       let fv : @hashset.HashSet[String] = @hashset.HashSet([])
@@ -164,10 +164,10 @@ pub fn eval_analysis() -> @egraph.Analysis[LambdaLang, EvalState] {
         (Some(v), None) | (None, Some(v)) => Some(v)
         _ => None
       }
-      let result : EvalState = { fv, val }
+      let result : EvalState = { fv, val, }
       let a_changed = a.fv.length() != fv.length() || a.val != val
       let b_changed = b.fv.length() != fv.length() || b.val != val
-      (result, { a_changed, b_changed })
+      (result, { a_changed, b_changed, })
     },
     modify: fn(eg, id) {
       // Constant folding: if we know the value, add the literal node

@@ -284,7 +284,7 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
           fv_union(fv, get_data(v).fv)
         }
       }
-      { fv, val }
+      { fv, val, }
     },
     merge: fn(a, b) {
       // Intersection: equivalent terms share the same semantic FV set.
@@ -301,12 +301,12 @@ fn subst_and_eval_analysis() -> Analysis[LambdaLang, EvalState] {
         (Some(v), None) | (None, Some(v)) => Some(v)
         _ => None
       }
-      let result = { fv, val }
+      let result = { fv, val, }
       // `fv` is the intersection of `a.fv` and `b.fv`, so `fv ⊆ a.fv` and
       // `fv ⊆ b.fv`. Equal length on either side therefore implies set equality.
       let a_changed = a.fv.length() != fv.length() || a.val != val
       let b_changed = b.fv.length() != fv.length() || b.val != val
-      (result, { a_changed, b_changed })
+      (result, { a_changed, b_changed, })
     },
     modify: fn(eg, id) {
       match eg.get_data(id).val {
@@ -561,3 +561,9 @@ test "eval integration: variable has no constant value" {
   let sum = eg.add(LAdd(x, three))
   @debug.assert_eq(eg.get_data(sum).val, None)
 }
+
+///|
+pub extend ValLit with Eq::{not_equal, equal}
+
+///|
+pub extend ValLit with @moonbitlang/core/debug.Debug::{to_repr}

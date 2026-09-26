@@ -525,7 +525,7 @@ fn constant_fold_analysis() -> Analysis[LambdaLang, Int?] {
       }
       let a_changed = a != result
       let b_changed = b != result
-      (result, { a_changed, b_changed })
+      (result, { a_changed, b_changed, })
     },
     modify: fn(egraph, id) {
       match egraph.get_data(id) {

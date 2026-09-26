@@ -103,3 +103,31 @@ pub impl @egraph.ENodeRepr for LambdaLang with fn from_op(
     _ => None
   }
 }
+
+///|
+pub extend LambdaLang with @dowdiness/egraph.ENode::{
+  arity,
+  child,
+  children,
+  map_children,
+}
+
+///|
+pub extend LambdaLang with @dowdiness/egraph.ENodeRepr::{
+  from_op,
+  op_name,
+  op_tag,
+  payload,
+}
+
+///|
+pub extend LambdaLang with @moonbitlang/core/debug.Debug::{to_repr}
+
+///|
+pub extend LambdaLang with Eq::{equal, not_equal}
+
+///|
+pub extend LambdaLang with Hash::{hash, hash_combine}
+
+///|
+pub extend LambdaLang with Show::{output, to_string}
