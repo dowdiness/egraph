@@ -74,10 +74,11 @@ fn term_add(eg : EGraph[LambdaLang], term : @ast.Term) -> Id {
 
 ///|
 /// Values the constant-folding lattice can represent.
+#derive(Eq, Debug)
 enum ValLit {
-  VInt(Int)
+  VInt(Int32)
   VBool(Bool)
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for ValLit with fn output(self, logger) {

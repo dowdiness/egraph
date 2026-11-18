@@ -26,19 +26,20 @@ pub struct AnalyzedEGraph[L, D] {
 #alias(new, deprecated)
 pub fn[L : Hash + Eq, D] AnalyzedEGraph::AnalyzedEGraph(Analysis[L, D]) -> Self[L, D]
 pub fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::add(Self[L, D], L) -> Id
-pub fn[L : ENode, D] AnalyzedEGraph::extract(Self[L, D], Id, CostFn[L]) -> (Int, RecExpr[L])
+pub fn[L : ENode, D] AnalyzedEGraph::extract(Self[L, D], Id, CostFn[L]) -> (Int32, RecExpr[L])
 pub fn[L, D] AnalyzedEGraph::find(Self[L, D], Id) -> Id
 pub fn[L, D] AnalyzedEGraph::get_data(Self[L, D], Id) -> D
 pub fn[L : ENode + Hash + Eq, D] AnalyzedEGraph::rebuild(Self[L, D]) -> Unit
-pub fn[L, D] AnalyzedEGraph::size(Self[L, D]) -> Int
+pub fn[L, D] AnalyzedEGraph::size(Self[L, D]) -> Int32
 pub fn[L, D] AnalyzedEGraph::union(Self[L, D], Id, Id) -> Id
 
-pub struct CostFn[L]((L, (Id) -> Int) -> Int)
+pub struct CostFn[L]((L, (Id) -> Int32) -> Int32)
 
+#derive(Eq, @debug.Debug)
 pub(all) struct DidMerge {
   a_changed : Bool
   b_changed : Bool
-} derive(Eq, @debug.Debug)
+}
 pub fn DidMerge::a_only() -> Self
 pub fn DidMerge::b_only() -> Self
 pub fn DidMerge::both() -> Self
@@ -62,21 +63,22 @@ pub struct EGraph[L] {
 #alias(new, deprecated)
 pub fn[L : Hash + Eq] EGraph::EGraph() -> Self[L]
 pub fn[L : ENode + Hash + Eq] EGraph::add(Self[L], L) -> Id
-pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(Self[L], Rewrite, Array[(Id, Subst)]) -> Int
-pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(Self[L], Rewrite) -> Int
+pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(Self[L], Rewrite, Array[(Id, Subst)]) -> Int32
+pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(Self[L], Rewrite) -> Int32
 pub fn[L : ENode + ENodeRepr] EGraph::ematch(Self[L], Pat, Id) -> Array[Subst]
-pub fn[L : ENode] EGraph::extract(Self[L], Id, CostFn[L]) -> (Int, RecExpr[L])
+pub fn[L : ENode] EGraph::extract(Self[L], Id, CostFn[L]) -> (Int32, RecExpr[L])
 pub fn[L] EGraph::find(Self[L], Id) -> Id
 pub fn[L : ENodeRepr + ENode + Hash + Eq] EGraph::instantiate(Self[L], Pat, Subst) -> Id
 pub fn[L : ENode + Hash + Eq] EGraph::rebuild(Self[L]) -> Unit
 pub fn[L : ENode + ENodeRepr] EGraph::search(Self[L], Pat) -> Array[(Id, Subst)]
-pub fn[L] EGraph::size(Self[L]) -> Int
+pub fn[L] EGraph::size(Self[L]) -> Int32
 pub fn[L] EGraph::union(Self[L], Id, Id) -> Id
 
-pub(all) struct Id(Int) derive(Compare, Eq, Hash, @debug.Debug)
-pub fn Id::compare(Self, Self) -> Int
+#derive(Compare, Eq, Hash, @debug.Debug)
+pub(all) struct Id(Int32)
+pub fn Id::compare(Self, Self) -> Int32
 pub fn Id::equal(Self, Self) -> Bool
-pub fn Id::hash(Self) -> Int
+pub fn Id::hash(Self) -> Int32
 pub fn Id::hash_combine(Self, Hasher) -> Unit
 pub fn Id::not_equal(Self, Self) -> Bool
 pub fn Id::op_ge(Self, Self) -> Bool
@@ -88,10 +90,11 @@ pub fn Id::to_repr(Self) -> @debug.Repr
 pub fn Id::to_string(Self) -> String
 pub impl Show for Id
 
+#derive(Eq, @debug.Debug)
 pub(all) enum Pat {
   Var(String)
   Node(String, String?, Array[Pat])
-} derive(Eq, @debug.Debug)
+}
 pub fn Pat::equal(Self, Self) -> Bool
 pub fn Pat::not_equal(Self, Self) -> Bool
 pub fn Pat::output(Self, &Logger) -> Unit
@@ -112,19 +115,21 @@ pub struct Rewrite {
 pub struct Runner[L] {
   // private fields
 }
-pub fn[L] Runner::new(EGraph[L], roots? : Array[Id], iter_limit? : Int, node_limit? : Int) -> Self[L]
+pub fn[L] Runner::new(EGraph[L], roots? : Array[Id], iter_limit? : Int32, node_limit? : Int32) -> Self[L]
 pub fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(Self[L], Array[Rewrite]) -> StopReason
 
+#derive(Eq, @debug.Debug)
 pub enum StopReason {
   Saturated
   IterLimit
   NodeLimit
-} derive(Eq, @debug.Debug)
+}
 pub fn StopReason::equal(Self, Self) -> Bool
 pub fn StopReason::not_equal(Self, Self) -> Bool
 pub fn StopReason::to_repr(Self) -> @debug.Repr
 
-pub(all) struct Subst(Map[String, Id]) derive(@debug.Debug)
+#derive(@debug.Debug)
+pub(all) struct Subst(Map[String, Id])
 #alias("_[_]")
 pub fn Subst::get(Self, String) -> Id?
 pub fn Subst::to_repr(Self) -> @debug.Repr
@@ -133,8 +138,8 @@ pub fn Subst::to_repr(Self) -> @debug.Repr
 
 // Traits
 pub(open) trait ENode {
-  fn arity(Self) -> Int
-  fn child(Self, Int) -> Id
+  fn arity(Self) -> Int32
+  fn child(Self, Int32) -> Id
   fn map_children(Self, (Id) -> Id) -> Self
   fn children(Self) -> Array[Id] = _
 }
