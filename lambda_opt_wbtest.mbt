@@ -5,8 +5,9 @@
 // function application, and let-binding.
 
 ///|
+#derive(Eq, Hash, Debug)
 priv enum LambdaLang {
-  LNum(Int)
+  LNum(Int32)
   LVar(String)
   LAdd(Id, Id)
   LMul(Id, Id)
@@ -18,7 +19,7 @@ priv enum LambdaLang {
   LBool(Bool)
   LIsZero(Id)
   LSubst(String, Id, Id)
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 impl Show for LambdaLang with fn output(self, logger) {
@@ -498,7 +499,7 @@ test "lambda: new variant ENodeRepr round-trip" {
 
 ///|
 /// Constant folding analysis: tracks known constant values per e-class.
-fn constant_fold_analysis() -> Analysis[LambdaLang, Int?] {
+fn constant_fold_analysis() -> Analysis[LambdaLang, Int32?] {
   {
     make: fn(node, get_data) {
       match node {

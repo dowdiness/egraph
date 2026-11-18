@@ -26,7 +26,8 @@
 ///|
 /// E-class identifier. Newtype wrapper around Int for type safety.
 /// Each Id refers to a slot in the Union-Find's parent array.
-pub(all) struct Id(Int) derive(Eq, Compare, Hash, Debug)
+#derive(Eq, Compare, Hash, Debug)
+pub(all) struct Id(Int32)
 
 ///|
 /// Domain-specific Show: display as just the integer for readability.
@@ -49,16 +50,17 @@ pub impl Show for Id with fn output(self, logger) {
 
 ///|
 /// Tree height upper bound for union by rank.
-type Rank = Int
+type Rank = Int32
 
 ///|
 /// Union-Find with path compression and union by rank.
 /// `parents[i]` is the parent of element i; roots point to themselves.
 /// `ranks[i]` is an upper bound on the height of the subtree rooted at i.
+#derive(Default, Debug)
 priv struct UnionFind {
   parents : Array[Id]
   ranks : Array[Rank]
-} derive(Default, Debug)
+}
 
 ///|
 fn UnionFind::UnionFind() -> UnionFind {
@@ -134,7 +136,7 @@ fn UnionFind::union(self : UnionFind, a : Id, b : Id) -> Id {
 
 ///|
 /// Current number of elements.
-fn UnionFind::size(self : UnionFind) -> Int {
+fn UnionFind::size(self : UnionFind) -> Int32 {
   self.parents.length()
 }
 
@@ -156,8 +158,8 @@ fn UnionFind::size(self : UnionFind) -> Int {
 /// Required: arity, child, map_children.
 /// Default: children (derived from arity + child).
 pub(open) trait ENode {
-  fn arity(Self) -> Int
-  fn child(Self, Int) -> Id
+  fn arity(Self) -> Int32
+  fn child(Self, Int32) -> Id
   fn map_children(Self, (Id) -> Id) -> Self
   fn children(Self) -> Array[Id] = _
 }
@@ -225,10 +227,11 @@ impl ENodeRepr with fn op_name(self) {
 ///|
 /// Pattern: either a variable or a concrete operator with child patterns.
 /// Node stores (tag, payload?, children) — split at parse time, not match time.
+#derive(Eq, Debug)
 pub(all) enum Pat {
   Var(String)
   Node(String, String?, Array[Pat])
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for Pat with fn output(self, logger) {
@@ -240,7 +243,8 @@ pub impl Show for Pat with fn output(self, logger) {
 ///
 /// Example: matching "(Add ?x ?y)" against Add(Id(0), Id(1))
 ///   → Subst({ "x": Id(0), "y": Id(1) })
-pub(all) struct Subst(Map[String, Id]) derive(Debug)
+#derive(Debug)
+pub(all) struct Subst(Map[String, Id])
 
 ///|
 /// Look up a pattern variable binding.
@@ -268,7 +272,7 @@ pub fn Pat::parse(s : String) -> Pat raise Error {
 }
 
 ///|
-fn parse_pat(chars : Array[Char], pos : Int) -> (Pat, Int) raise Error {
+fn parse_pat(chars : Array[Char], pos : Int32) -> (Pat, Int32) raise Error {
   let mut i = skip_ws(chars, pos)
   if i >= chars.length() {
     raise Failure::Failure("unexpected end of input")
@@ -348,7 +352,7 @@ fn split_at_colon(s : String) -> (String, String?) {
 }
 
 ///|
-fn skip_ws(chars : Array[Char], pos : Int) -> Int {
+fn skip_ws(chars : Array[Char], pos : Int32) -> Int32 {
   let mut i = pos
   while i < chars.length() && chars[i] == ' ' {
     i = i + 1
@@ -420,7 +424,7 @@ fn[L] EGraph::has_pending(self : EGraph[L]) -> Bool {
 ///|
 /// Total number of e-class slots (Union-Find entries).
 /// This grows monotonically — unions merge classes but don't remove slots.
-pub fn[L] EGraph::size(self : EGraph[L]) -> Int {
+pub fn[L] EGraph::size(self : EGraph[L]) -> Int32 {
   self.uf.size()
 }
 
@@ -734,7 +738,7 @@ pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
   self : EGraph[L],
   rule : Rewrite,
   matches : Array[(Id, Subst)],
-) -> Int {
+) -> Int32 {
   let mut applied = 0
   for pair in matches {
     let (matched_id, subst) = pair
@@ -759,7 +763,7 @@ pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_matches(
 pub fn[L : ENode + ENodeRepr + Hash + Eq] EGraph::apply_rewrite(
   self : EGraph[L],
   rule : Rewrite,
-) -> Int {
+) -> Int32 {
   let matches = self.search(rule.lhs)
   self.apply_matches(rule, matches)
 }
@@ -798,7 +802,7 @@ pub fn[L] RecExpr::root(self : RecExpr[L]) -> L {
 /// Cost function type: given an e-node and a lookup for child costs,
 /// return the node's cost. Using a function type (not a trait) because
 /// the cost function doesn't vary by Self — it varies by use case.
-pub struct CostFn[L]((L, (Id) -> Int) -> Int)
+pub struct CostFn[L]((L, (Id) -> Int32) -> Int32)
 
 ///|
 /// Simplest cost function: AST size (1 per node + sum of children).
@@ -822,8 +826,8 @@ pub fn[L : ENode] EGraph::extract(
   self : EGraph[L],
   root : Id,
   cost_fn : CostFn[L],
-) -> (Int, RecExpr[L]) {
-  let best_cost : Map[Id, Int] = Map([])
+) -> (Int32, RecExpr[L]) {
+  let best_cost : Map[Id, Int32] = Map([])
   let best_node : Map[Id, L] = Map([])
   let max_cost = 1_000_000_000
   let CostFn(f) = cost_fn
@@ -921,11 +925,12 @@ fn[L : ENode] reconstruct(
 
 ///|
 /// Why the equality saturation loop stopped.
+#derive(Eq, Debug)
 pub enum StopReason {
   Saturated
   IterLimit
   NodeLimit
-} derive(Eq, Debug)
+}
 
 ///|
 impl Show for StopReason with fn output(self, logger) {
@@ -941,8 +946,8 @@ impl Show for StopReason with fn output(self, logger) {
 pub struct Runner[L] {
   priv egraph : EGraph[L]
   priv _roots : Array[Id]
-  priv iter_limit : Int
-  priv node_limit : Int
+  priv iter_limit : Int32
+  priv node_limit : Int32
 }
 
 ///|
@@ -950,9 +955,9 @@ pub struct Runner[L] {
 /// iter_limit defaults to 30, node_limit defaults to 10_000.
 pub fn[L] Runner::new(
   egraph : EGraph[L],
-  roots? : Array[Id] = [],
-  iter_limit? : Int = 30,
-  node_limit? : Int = 10_000,
+  roots~ : Array[Id] = [],
+  iter_limit~ : Int32 = 30,
+  node_limit~ : Int32 = 10_000,
 ) -> Runner[L] {
   { egraph, _roots: roots, iter_limit, node_limit, }
 }
@@ -1020,8 +1025,8 @@ pub fn[L : ENode + ENodeRepr + Hash + Eq] Runner::run(
 ///|
 /// Per-rule state tracked by the scheduler.
 priv struct RuleStats {
-  mut ban_length : Int // Current ban duration; doubles each time rule is banned
-  mut banned_until : Int // First iteration rule is allowed again; 0 = not banned
+  mut ban_length : Int32 // Current ban duration; doubles each time rule is banned
+  mut banned_until : Int32 // First iteration rule is allowed again; 0 = not banned
 }
 
 ///|
@@ -1035,12 +1040,12 @@ priv struct RuleStats {
 /// Default `match_limit` is 1000. Rule names must be unique across the
 /// rules array passed to `run` — duplicate names share the same backoff bucket.
 priv struct BackoffScheduler {
-  match_limit : Int
+  match_limit : Int32
   stats : Map[String, RuleStats]
 }
 
 ///|
-fn BackoffScheduler::new(match_limit? : Int = 1000) -> BackoffScheduler {
+fn BackoffScheduler::new(match_limit~ : Int32 = 1000) -> BackoffScheduler {
   { match_limit, stats: Map([]), }
 }
 
@@ -1049,7 +1054,7 @@ fn BackoffScheduler::new(match_limit? : Int = 1000) -> BackoffScheduler {
 fn BackoffScheduler::can_apply(
   self : BackoffScheduler,
   name : String,
-  iter : Int,
+  iter : Int32,
 ) -> Bool {
   match self.stats.get(name) {
     Some(s) => iter >= s.banned_until
@@ -1064,8 +1069,8 @@ fn BackoffScheduler::can_apply(
 fn BackoffScheduler::did_search(
   self : BackoffScheduler,
   name : String,
-  search_matches : Int,
-  iter : Int,
+  search_matches : Int32,
+  iter : Int32,
 ) -> Unit {
   if search_matches > self.match_limit {
     let s = match self.stats.get(name) {
@@ -1094,8 +1099,8 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
   self : BackoffScheduler,
   egraph : EGraph[L],
   rules : Array[Rewrite],
-  iter_limit? : Int = 30,
-  node_limit? : Int = 10_000,
+  iter_limit~ : Int32 = 30,
+  node_limit~ : Int32 = 10_000,
 ) -> StopReason {
   for iter = 0; iter < iter_limit; iter = iter + 1 {
     // === Read Phase ===
@@ -1153,10 +1158,11 @@ fn[L : ENode + ENodeRepr + Hash + Eq] BackoffScheduler::run(
 /// `b_changed`: the second argument was updated.
 /// Returned by `Analysis.merge` to let callers skip redundant work on
 /// e-classes whose analysis data is already stable.
+#derive(Eq, Debug)
 pub(all) struct DidMerge {
   a_changed : Bool
   b_changed : Bool
-} derive(Eq, Debug)
+}
 
 ///|
 pub impl Show for DidMerge with fn output(self, logger) {
@@ -1451,7 +1457,7 @@ fn[L, D] AnalyzedEGraph::recompute_data(
 
 ///|
 /// Total number of e-class slots.
-pub fn[L, D] AnalyzedEGraph::size(self : AnalyzedEGraph[L, D]) -> Int {
+pub fn[L, D] AnalyzedEGraph::size(self : AnalyzedEGraph[L, D]) -> Int32 {
   self.egraph.size()
 }
 
@@ -1499,7 +1505,7 @@ fn[L : ENode + ENodeRepr + Hash + Eq, D] AnalyzedEGraph::apply_matches(
   self : AnalyzedEGraph[L, D],
   rule : Rewrite,
   matches : Array[(Id, Subst)],
-) -> Int {
+) -> Int32 {
   let mut applied = 0
   for pair in matches {
     let (matched_id, subst) = pair
@@ -1522,7 +1528,7 @@ pub fn[L : ENode, D] AnalyzedEGraph::extract(
   self : AnalyzedEGraph[L, D],
   root : Id,
   cost_fn : CostFn[L],
-) -> (Int, RecExpr[L]) {
+) -> (Int32, RecExpr[L]) {
   self.egraph.extract(root, cost_fn)
 }
 

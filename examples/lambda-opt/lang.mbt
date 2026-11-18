@@ -1,8 +1,9 @@
 // Lambda calculus e-node language for equality saturation optimization.
 
 ///|
+#derive(Eq, Hash, Debug)
 pub enum LambdaLang {
-  LNum(Int)
+  LNum(Int32)
   LVar(String)
   LAdd(@egraph.Id, @egraph.Id)
   LMinus(@egraph.Id, @egraph.Id)
@@ -11,7 +12,7 @@ pub enum LambdaLang {
   LLet(String, @egraph.Id, @egraph.Id)
   LIf(@egraph.Id, @egraph.Id, @egraph.Id)
   LSubst(String, @egraph.Id, @egraph.Id) // internal: explicit substitution
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 pub impl Show for LambdaLang with fn output(self, logger) {

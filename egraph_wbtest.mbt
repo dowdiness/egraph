@@ -1,10 +1,11 @@
 // ── Test language ──
 
 ///|
+#derive(Eq, Hash, Debug)
 priv enum TestLang {
-  Num(Int)
+  Num(Int32)
   Add(Id, Id)
-} derive(Eq, Hash, Debug)
+}
 
 ///|
 impl Show for TestLang with fn output(self, logger) {
@@ -706,7 +707,7 @@ test "runner: commutativity saturates for single expression" {
 ///|
 test "analysis: simple constant folding with TestLang" {
   // Analysis that tracks known constant values
-  let analysis : Analysis[TestLang, Int?] = {
+  let analysis : Analysis[TestLang, Int32?] = {
     make: fn(node, get_data) {
       match node {
         Num(n) => Some(n)
@@ -762,7 +763,7 @@ test "analysis: simple constant folding with TestLang" {
 //   With fix: b_changed=true for B's change → any_changed=true → pass 2 runs.
 //   Pass 2: C sees B=None → C becomes None. Correct.
 test "analysis: data decrease propagates through depth-2 chain" {
-  let analysis : Analysis[TestLang, Int?] = {
+  let analysis : Analysis[TestLang, Int32?] = {
     make: fn(node, get_data) {
       match node {
         Num(n) => Some(n)
@@ -834,7 +835,7 @@ test "DidMerge: helpers produce correct flags" {
 
 ///|
 test "DidMerge: Int? merge flags — stable, one-sided, conflict" {
-  fn merge(a : Int?, b : Int?) -> (Int?, DidMerge) {
+  fn merge(a : Int32?, b : Int32?) -> (Int32?, DidMerge) {
     let result = match (a, b) {
       (Some(x), Some(y)) => if x == y { Some(x) } else { None }
       (Some(x), None) | (None, Some(x)) => Some(x)

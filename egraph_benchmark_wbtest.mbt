@@ -20,7 +20,7 @@
 
 ///|
 /// Constant-folding analysis for TestLang (mirrors egraph_wbtest.mbt).
-fn cf_analysis() -> Analysis[TestLang, Int?] {
+fn cf_analysis() -> Analysis[TestLang, Int32?] {
   {
     make: fn(node, get_data) {
       match node {
@@ -58,7 +58,7 @@ fn cf_analysis() -> Analysis[TestLang, Int?] {
 /// fire but produce only no-op unions — no new pending work is enqueued.
 /// Post-#23 baseline: ~20 µs. Post-#26 (scratch swap): ~17 µs.
 test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
-  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::AnalyzedEGraph(
+  let eg : AnalyzedEGraph[TestLang, Int32?] = AnalyzedEGraph::AnalyzedEGraph(
     cf_analysis(),
   )
   let nums : Array[Id] = []
@@ -84,7 +84,7 @@ test "rebuild: stable e-graph (100 classes)" (b : @bench.T) {
 /// Post-#26 (scratch map + O(1) swap): ~264 µs — saves ~74 µs (22%).
 /// The 22% reduction matches the isolation microbenchmark's ~81 µs alloc cost.
 test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
-  let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::AnalyzedEGraph(
+  let eg : AnalyzedEGraph[TestLang, Int32?] = AnalyzedEGraph::AnalyzedEGraph(
     cf_analysis(),
   )
   let nums : Array[Id] = []
@@ -113,7 +113,7 @@ test "rebuild: stable e-graph (1000 classes)" (b : @bench.T) {
 /// Post-#23 baseline: ~119 µs. Post-#26: ~112 µs.
 test "rebuild: setup + one union + rebuild" (b : @bench.T) {
   b.bench(fn() {
-    let eg : AnalyzedEGraph[TestLang, Int?] = AnalyzedEGraph::AnalyzedEGraph(
+    let eg : AnalyzedEGraph[TestLang, Int32?] = AnalyzedEGraph::AnalyzedEGraph(
       cf_analysis(),
     )
     let nums : Array[Id] = []
@@ -146,14 +146,14 @@ test "isolate: map alloc + populate + copy-back at 1000 entries" (b : @bench.T) 
   for i = 0; i < 1000; i = i + 1 {
     ids.push(Id(i))
   }
-  let store : Map[Id, Int?] = Map([])
+  let store : Map[Id, Int32?] = Map([])
   for id in ids {
     store[id] = Some(id.0)
   }
   b.bench(fn() {
     // Old recompute_data pattern (pre-#26): alloc fresh map, populate,
     // clear the live map, copy entries back.
-    let next_data : Map[Id, Int?] = Map([])
+    let next_data : Map[Id, Int32?] = Map([])
     for id in ids {
       next_data[id] = store[id]
     }

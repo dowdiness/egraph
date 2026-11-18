@@ -6,7 +6,7 @@
 /// `val`: known integer constant if this e-class reduces to a literal.
 pub(all) struct EvalState {
   fv : @hashset.HashSet[String]
-  val : Int?
+  val : Int32?
 }
 
 ///|
@@ -101,7 +101,7 @@ pub fn eval_analysis() -> @egraph.Analysis[LambdaLang, EvalState] {
   {
     make: fn(node, get_data) {
       let fv : @hashset.HashSet[String] = @hashset.HashSet([])
-      let mut val : Int? = None
+      let mut val : Int32? = None
       match node {
         LNum(n) => val = Some(n)
         LVar(x) => fv.add(x)
